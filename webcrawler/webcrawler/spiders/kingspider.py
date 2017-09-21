@@ -10,9 +10,9 @@ class PronunSpider(scrapy.Spider):
 
     # generate url
     try:
-        word_list = open('../../../word_list', 'r')
+        word_list = open('../word_list', 'r')
         for line in word_list.readlines():
-            start_urls.append('http://www.iciba.com/' + line)
+            start_urls.append('http://www.iciba.com/' + line.strip())
     except IOError:
         print "Please Check word_list"
     finally:
