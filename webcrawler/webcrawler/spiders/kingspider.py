@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import scrapy
 import re
 
@@ -5,9 +6,17 @@ import re
 class PronunSpider(scrapy.Spider):
     name = "ciba"
     start_urls = [
-        'http://www.iciba.com/nice',
-        'http://www.iciba.com/flavor'
     ]
+
+    # generate url
+    try:
+        word_list = open('../../../word_list', 'r')
+        for line in word_list.readlines():
+            start_urls.append('http://www.iciba.com/' + line)
+    except IOError:
+        print "Please Check word_list"
+    finally:
+        word_list.close()
 
     custom_settings = {
         # specifies exported fields and order
