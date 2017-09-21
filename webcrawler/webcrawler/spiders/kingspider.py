@@ -25,9 +25,14 @@ class PronunSpider(scrapy.Spider):
 
     def parse(self, response):
         Word = re.match('http://www.iciba.com/(.*)', response.url).group(1)
-        English = response.css(
-            "div.base-speak span:nth-child(1)>span")[0].re('.*\[(.*)\]')
-        American = response.css(
-            "div.base-speak span:nth-child(2)>span")[0].re('.*\[(.*)\]')
-
+        try:
+            English = response.css(
+                "div.base-speak span:nth-child(1)>span")[0].re('.*\[(.*)\]')
+        except IndexError:
+            English = ['NULL']
+        try:
+            American = response.css(
+                "div.base-speak span:nth-child(2)>span")[0].re('.*\[(.*)\]')
+        except IndexError:
+            American = ['NULL']
         yield {'English': English[0], 'American': American[0], 'Word': Word}
