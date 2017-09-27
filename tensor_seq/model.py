@@ -1,12 +1,7 @@
 from tensorflow.python.layers.core import Dense
 import numpy as np
 import tensorflow as tf
-
-# open the file contains data
-with open('/home/yy/pronunciation-prediction/tensor_seq/source_list') as f:
-    source_data = f.read().split('\n')
-with open('/home/yy/pronunciation-prediction/tensor_seq/target_list') as f:
-    target_data = f.read().split('\n')
+import pickle
 
 # parameters
 # Number of Epochs
@@ -14,47 +9,23 @@ epochs = 60
 # Batch Size
 batch_size = 128
 # RNN Size
-rnn_size = 128
+rnn_size = 256
 # Number of Layers
 num_layers = 2
 # Embedding Size
 encoding_embedding_size = 20
-decoding_embedding_size = 20
+decoding_embedding_size = encoding_embedding_size
 # Learning Rate
 learning_rate = 0.001
 # cell type 0 for lstm, 1 for GRU
-C_type = 1
+C_type = 0
 # decoder type 0 for basic, 1 for beam search
 D_type = 0
 
-
-# map the character and pronunciation to idx
-def word2index(data):
-    special_words = ['<EOS>', '<GO>', '<PAD>', '<UNK>']
-    set_words = list(set([c for line in data for c in line] + special_words))
-
-    idx2word = {idx: word for idx, word in enumerate(set_words)}
-    word2idx = {word: idx for idx, word in idx2word.items()}
-    return idx2word, word2idx
-
-
-def phon2index(data):
-    special_words = ['<EOS>', '<GO>', '<PAD>', '<UNK>']
-    set_words = list(
-        set([pho for line in data for pho in line.split()] + special_words))
-
-    idx2word = {idx: word for idx, word in enumerate(set_words)}
-    word2idx = {word: idx for idx, word in idx2word.items()}
-    return idx2word, word2idx
-
-
-source_int_to_letter, source_letter_to_int = word2index(source_data)
-target_int_to_letter, target_letter_to_int = phon2index(target_data)
-
-source_int = [[source_letter_to_int.get(letter, source_letter_to_int['<UNK>'])
-               for letter in line] for line in source_data]
-target_int = [[target_letter_to_int.get(letter, target_letter_to_int['<UNK>'])
-               for letter in line.split()] + [target_letter_to_int['<EOS>']] for line in target_data]
+# import the data
+with open('data.pickle', 'r') as f:
+    source_int_to_letter, source_letter_to_int, target_int_to_letter, target_letter_to_int, source_int, target_int = pickle.load(
+        f)
 
 
 # input of the model
@@ -103,6 +74,7 @@ def get_encoder_layer(input_data, rnn_size, num_layers,
     return encoder_output, encoder_state
 
 
+# construct the decoder layer
 def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rnn_size,
                    target_sequence_length, max_target_sequence_length, encoder_state, decoder_input, cell_type,
                    decoder_type):
@@ -151,6 +123,7 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
     return training_decoder_output, predicting_decoder_output
 
 
+# add <GO> and strip the last character for the input of the training decoder
 def process_decoder_input(data, vocab_to_int, batch_size):
     ending = tf.strided_slice(data, [0, 0], [batch_size, -1], [1, 1])
     decoder_input = tf.concat([tf.fill([batch_size, 1], vocab_to_int['<GO>']), ending], 1)
@@ -158,6 +131,7 @@ def process_decoder_input(data, vocab_to_int, batch_size):
     return decoder_input
 
 
+# connect the encoder and decoder
 def seq2seq_model(input_data, targets, lr, target_sequence_length,
                   max_target_sequence_length, source_sequence_length,
                   source_vocab_size, target_vocab_size,
@@ -185,12 +159,15 @@ def seq2seq_model(input_data, targets, lr, target_sequence_length,
     return training_decoder_output, predicting_decoder_output
 
 
+# define the compute graph
 train_graph = tf.Graph()
-
 with train_graph.as_default():
+    # define the global step of the graph
+    global_step = tf.train.create_global_step(train_graph)
     input_data, targets, lr, target_sequence_length, max_target_sequence_length, source_sequence_length = get_inputs()
     cell_type = tf.placeholder(tf.int32, name='cell_type')
     decoder_type = tf.placeholder(tf.int32, name='decoder_type')
+    # get the output of the seq2seq model
     training_decoder_output, predicting_decoder_output = seq2seq_model(input_data,
                                                                        targets,
                                                                        lr,
@@ -203,9 +180,11 @@ with train_graph.as_default():
                                                                        decoding_embedding_size,
                                                                        rnn_size,
                                                                        num_layers, cell_type, decoder_type)
-
-    training_logits = tf.identity(training_decoder_output.rnn_output, 'training')
-    predicting_logits = tf.identity(predicting_decoder_output.rnn_output, 'predictions')
+    # get the logits to compute the loss
+    training_logits = tf.identity(training_decoder_output.rnn_output, 'training_logits')
+    predicting_logits = tf.identity(predicting_decoder_output.rnn_output, 'predicting_logits')
+    # the result of the prediction
+    prediction = tf.identity(predicting_decoder_output.sample_id, 'prediction_result')
 
     masks = tf.sequence_mask(target_sequence_length, max_target_sequence_length, dtype=tf.float32, name='masks')
 
@@ -222,8 +201,8 @@ with train_graph.as_default():
         # Gradient Clipping
         gradients = optimizer.compute_gradients(train_cost)
         capped_gradients = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in gradients if grad is not None]
-        train_op = optimizer.apply_gradients(capped_gradients)
-        tf.summary.scalar('training_cost', train_cost)
+        train_op = optimizer.apply_gradients(capped_gradients, global_step=global_step)
+    training_cost_summary = tf.summary.scalar('training_cost', train_cost)
 
     with tf.name_scope("validation"):
         # get sequence length
@@ -235,14 +214,16 @@ with train_graph.as_default():
             training_logits,
             targets,
             masks)
-        tf.summary.scalar('validation_cost', validation_cost)
+    validation_cost_summary = tf.summary.scalar('validation_cost', validation_cost)
 
 
+# pad each batch to get the same size of input and output
 def pad_sentence_batch(sentence_batch, pad_int):
     max_sentence = max([len(sentence) for sentence in sentence_batch])
     return [sentence + [pad_int] * (max_sentence - len(sentence)) for sentence in sentence_batch]
 
 
+# generate batches
 def get_batches(targets, sources, batch_size, source_pad_int, target_pad_int):
     for batch_i in range(0, len(sources) // batch_size):
         start_i = batch_i * batch_size
@@ -284,21 +265,30 @@ valid_target = target_int_shuffle[:batch_size]
 
 display_step = 50
 
-checkpoint = "trained_model.ckpt"
-
 with tf.Session(graph=train_graph) as sess:
     # define summary
-    merged = tf.summary.merge_all()
-    Summ = tf.summary.FileWriter('./graph', graph=sess.graph)
+    t_s = tf.summary.FileWriter('./graph/training', sess.graph)
+    v_s = tf.summary.FileWriter('./graph/validation', sess.graph)
+
+    # run initializer
     sess.run(tf.global_variables_initializer())
+
+    # define saver
+    saver = tf.train.Saver()
 
     for epoch_i in range(1, epochs + 1):
         for batch_i, (targets_batch, sources_batch, targets_lengths, sources_lengths) in enumerate(
                 get_batches(train_target, train_source, batch_size,
                             source_letter_to_int['<PAD>'],
                             target_letter_to_int['<PAD>'])):
-            _, loss = sess.run(
-                [train_op, train_cost],
+            # get global step
+            step = tf.train.global_step(sess, global_step)
+            if step % 1000 == 0:
+                # save the model every 1000 steps
+                saver.save(sess, save_path='./checkpoint/', global_step=step)
+
+            t_c, _, loss = sess.run(
+                [training_cost_summary, train_op, train_cost],
                 {input_data: sources_batch,
                  targets: targets_batch,
                  lr: learning_rate,
@@ -308,8 +298,8 @@ with tf.Session(graph=train_graph) as sess:
                  decoder_type: D_type})
 
             if batch_i % display_step == 0:
-                summary, validation_loss = sess.run(
-                    [merged, validation_cost],
+                v_c, validation_loss = sess.run(
+                    [validation_cost_summary, validation_cost],
                     {input_data: valid_sources_batch,
                      targets: valid_targets_batch,
                      lr: learning_rate,
@@ -318,10 +308,8 @@ with tf.Session(graph=train_graph) as sess:
                      cell_type: C_type,
                      decoder_type: D_type
                      })
-
-                # log the data
-                Summ.add_summary(summary)
-
+                t_s.add_summary(t_c, global_step=step)
+                v_s.add_summary(v_c, global_step=step)
                 print('Epoch {:>3}/{} Batch {:>4}/{} - Training Loss: {:>6.3f}  - Validation loss: {:>6.3f}'
                       .format(epoch_i,
                               epochs,
@@ -330,6 +318,6 @@ with tf.Session(graph=train_graph) as sess:
                               loss,
                               validation_loss))
 
-    saver = tf.train.Saver()
-    saver.save(sess, checkpoint)
+    # save the model when finished
+    saver.save(sess, save_path='./model/')
     print('Model Trained and Saved')
