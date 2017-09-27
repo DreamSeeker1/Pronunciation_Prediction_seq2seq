@@ -1,6 +1,5 @@
 from tensorflow.python.layers.core import Dense
 import numpy as np
-import time
 import tensorflow as tf
 
 # open the file contains data
@@ -11,7 +10,7 @@ with open('/home/yy/pronunciation-prediction/tensor_seq/target_list') as f:
 
 # parameters
 # Number of Epochs
-epochs = 2
+epochs = 60
 # Batch Size
 batch_size = 128
 # RNN Size
@@ -24,7 +23,7 @@ decoding_embedding_size = 20
 # Learning Rate
 learning_rate = 0.001
 # cell type 0 for lstm, 1 for GRU
-C_type = 0
+C_type = 1
 # decoder type 0 for basic, 1 for beam search
 D_type = 0
 
@@ -263,11 +262,21 @@ def get_batches(targets, sources, batch_size, source_pad_int, target_pad_int):
         yield pad_targets_batch, pad_sources_batch, targets_lengths, source_lengths
 
 
-train_source = source_int[batch_size:]
-train_target = target_int[batch_size:]
+# shuffle the data set
+permu = np.random.permutation(len(source_int))
+source_int_shuffle = []
+target_int_shuffle = []
 
-valid_source = source_int[:batch_size]
-valid_target = target_int[:batch_size]
+for i in permu:
+    source_int_shuffle.append(source_int[i])
+    target_int_shuffle.append(target_int[i])
+
+train_source = source_int_shuffle[batch_size:]
+train_target = target_int_shuffle[batch_size:]
+
+valid_source = source_int_shuffle[:batch_size]
+valid_target = target_int_shuffle[:batch_size]
+
 (valid_targets_batch, valid_sources_batch, valid_targets_lengths, valid_sources_lengths) = next(
     get_batches(valid_target, valid_source, batch_size,
                 source_letter_to_int['<PAD>'],
