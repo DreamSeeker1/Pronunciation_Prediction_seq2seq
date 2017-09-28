@@ -8,7 +8,7 @@ import pickle
 # Number of Epochs
 epochs = 60
 # Batch Size
-batch_size = 128
+batch_size = 1024
 # RNN Size
 rnn_size = 256
 # Number of Layers
@@ -19,11 +19,11 @@ decoding_embedding_size = encoding_embedding_size
 # Learning Rate
 learning_rate = 0.001
 # cell type 0 for lstm, 1 for GRU
-C_type = 0
+Cell_type = 0
 # decoder type 0 for basic, 1 for beam search
-D_type = 0
+Decoder_type = 0
 # 1 for training, 0 for test the already trained model
-isTrain = 0
+isTrain = 1
 # display step for training
 display_step = 50
 
@@ -51,27 +51,26 @@ def get_inputs():
 
 
 # construct the RNN cell, using LSTM or GRU
-def construct_cell(rnn_size, num_layers, cell_type):
-    def get_cell(rnn_size, cell_type):
-        if cell_type == 0:
-            cell = tf.contrib.rnn.LSTMCell(rnn_size, initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+def construct_cell(rnn_size, num_layers):
+    def get_cell(rnn_size):
+        if Cell_type:
+            return tf.contrib.rnn.GRUCell(rnn_size)
         else:
-            cell = tf.contrib.rnn.GRUCell(rnn_size)
-        return cell
+            return tf.contrib.rnn.LSTMCell(rnn_size, initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
 
-    cell = tf.contrib.rnn.MultiRNNCell([get_cell(rnn_size, cell_type) for _ in range(num_layers)])
+    cell = tf.contrib.rnn.MultiRNNCell([get_cell(rnn_size) for _ in range(num_layers)])
     return cell
 
 
 # construct encoder layer
 def get_encoder_layer(input_data, rnn_size, num_layers,
                       source_sequence_length, source_vocab_size,
-                      encoding_embedding_size, cell_type):
+                      encoding_embedding_size):
     # Encoder embedding
     encoder_embed_input = tf.contrib.layers.embed_sequence(input_data, source_vocab_size, encoding_embedding_size)
 
     # RNN cell
-    cell = construct_cell(rnn_size, num_layers, cell_type)
+    cell = construct_cell(rnn_size, num_layers)
 
     encoder_output, encoder_state = tf.nn.dynamic_rnn(cell, encoder_embed_input,
                                                       sequence_length=source_sequence_length, dtype=tf.float32)
@@ -81,15 +80,14 @@ def get_encoder_layer(input_data, rnn_size, num_layers,
 
 # construct the decoder layer
 def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rnn_size,
-                   target_sequence_length, max_target_sequence_length, encoder_state, decoder_input, cell_type,
-                   decoder_type):
+                   target_sequence_length, max_target_sequence_length, encoder_state, decoder_input):
     # Embedding
     target_vocab_size = len(target_letter_to_int)
     decoder_embeddings = tf.Variable(tf.random_uniform([target_vocab_size, decoding_embedding_size]))
     decoder_embed_input = tf.nn.embedding_lookup(decoder_embeddings, decoder_input)
 
     # construct cell
-    cell = construct_cell(rnn_size, num_layers, cell_type)
+    cell = construct_cell(rnn_size, num_layers)
 
     # output fully connected layer
     output_layer = Dense(target_vocab_size,
@@ -137,17 +135,17 @@ def process_decoder_input(data, vocab_to_int, batch_size):
 
 
 # connect the encoder and decoder
-def seq2seq_model(input_data, targets, lr, target_sequence_length,
+def seq2seq_model(input_data, targets, target_sequence_length,
                   max_target_sequence_length, source_sequence_length,
-                  source_vocab_size, target_vocab_size,
+                  source_vocab_size,
                   encoder_embedding_size, decoding_embedding_size,
-                  rnn_size, num_layers, cell_type, decoder_type):
+                  rnn_size, num_layers):
     _, encoder_state = get_encoder_layer(input_data,
                                          rnn_size,
                                          num_layers,
                                          source_sequence_length,
                                          source_vocab_size,
-                                         encoder_embedding_size, cell_type)
+                                         encoder_embedding_size)
 
     decoder_input = process_decoder_input(targets, target_letter_to_int, batch_size)
 
@@ -158,8 +156,7 @@ def seq2seq_model(input_data, targets, lr, target_sequence_length,
                                                                         target_sequence_length,
                                                                         max_target_sequence_length,
                                                                         encoder_state,
-                                                                        decoder_input, cell_type,
-                                                                        decoder_type)
+                                                                        decoder_input)
 
     return training_decoder_output, predicting_decoder_output
 
@@ -170,21 +167,21 @@ with train_graph.as_default():
     # define the global step of the graph
     global_step = tf.train.create_global_step(train_graph)
     input_data, targets, lr, target_sequence_length, max_target_sequence_length, source_sequence_length = get_inputs()
-    cell_type = tf.placeholder(tf.int32, name='cell_type')
-    decoder_type = tf.placeholder(tf.int32, name='decoder_type')
+
+    average_vali_loss = tf.placeholder(dtype=tf.float32)
+    v_c = tf.summary.scalar("validation_cost", average_vali_loss)
+
     # get the output of the seq2seq model
     training_decoder_output, predicting_decoder_output = seq2seq_model(input_data,
                                                                        targets,
-                                                                       lr,
                                                                        target_sequence_length,
                                                                        max_target_sequence_length,
                                                                        source_sequence_length,
                                                                        len(source_letter_to_int),
-                                                                       len(target_letter_to_int),
                                                                        encoding_embedding_size,
                                                                        decoding_embedding_size,
                                                                        rnn_size,
-                                                                       num_layers, cell_type, decoder_type)
+                                                                       num_layers)
     # get the logits to compute the loss
     training_logits = tf.identity(training_decoder_output.rnn_output, 'training_logits')
     predicting_logits = tf.identity(predicting_decoder_output.rnn_output, 'predicting_logits')
@@ -219,7 +216,6 @@ with train_graph.as_default():
             training_logits,
             targets,
             masks)
-    validation_cost_summary = tf.summary.scalar('validation_cost', validation_cost)
 
 
 # pad each batch to get the same size of input and output
@@ -258,16 +254,11 @@ if isTrain:
         source_int_shuffle.append(source_int[i])
         target_int_shuffle.append(target_int[i])
 
-    train_source = source_int_shuffle[batch_size:]
-    train_target = target_int_shuffle[batch_size:]
+    train_source = source_int_shuffle[10 * batch_size:]
+    train_target = target_int_shuffle[10 * batch_size:]
 
-    valid_source = source_int_shuffle[:batch_size]
-    valid_target = target_int_shuffle[:batch_size]
-
-    (valid_targets_batch, valid_sources_batch, valid_targets_lengths, valid_sources_lengths) = next(
-        get_batches(valid_target, valid_source, batch_size,
-                    source_letter_to_int['<PAD>'],
-                    target_letter_to_int['<PAD>']))
+    valid_source = source_int_shuffle[:10 * batch_size]
+    valid_target = target_int_shuffle[:10 * batch_size]
 
 with tf.Session(graph=train_graph) as sess:
     # define summary
@@ -298,41 +289,54 @@ with tf.Session(graph=train_graph) as sess:
                      targets: targets_batch,
                      lr: learning_rate,
                      target_sequence_length: targets_lengths,
-                     source_sequence_length: sources_lengths,
-                     cell_type: C_type,
-                     decoder_type: D_type})
+                     source_sequence_length: sources_lengths})
 
                 if batch_i % display_step == 0:
-                    v_c, validation_loss = sess.run(
-                        [validation_cost_summary, validation_cost],
-                        {input_data: valid_sources_batch,
-                         targets: valid_targets_batch,
-                         lr: learning_rate,
-                         target_sequence_length: valid_targets_lengths,
-                         source_sequence_length: valid_sources_lengths,
-                         cell_type: C_type,
-                         decoder_type: D_type
-                         })
+                    vali_loss = []
+                    for _, (
+                            valid_targets_batch, valid_sources_batch, valid_targets_lengths,
+                            valid_source_lengths) in enumerate(
+                        get_batches(valid_target, valid_source, batch_size,
+                                    source_letter_to_int['<PAD>'],
+                                    target_letter_to_int['<PAD>'])
+                    ):
+                        validation_loss = sess.run(
+                            [validation_cost],
+                            {input_data: valid_sources_batch,
+                             targets: valid_targets_batch,
+                             lr: learning_rate,
+                             target_sequence_length: valid_targets_lengths,
+                             source_sequence_length: valid_source_lengths})
+
+                        vali_loss.append(validation_loss[0])
+
+                    # calculate the validation cost over the validation dataset
+                    vali_loss = sum(vali_loss) / len(vali_loss)
+                    vali_summary = sess.run(v_c, {average_vali_loss: vali_loss})
+
+                    # write the cost to summery
                     t_s.add_summary(t_c, global_step=step)
-                    v_s.add_summary(v_c, global_step=step)
+                    v_s.add_summary(vali_summary, global_step=step)
+
                     print('Epoch {:>3}/{} Batch {:>4}/{} - Training Loss: {:>6.3f}  - Validation loss: {:>6.3f}'
                           .format(epoch_i,
                                   epochs,
                                   batch_i,
                                   len(train_source) // batch_size,
                                   loss,
-                                  validation_loss))
+                                  vali_loss))
 
         # save the model when finished
         saver.save(sess, save_path='./model/')
         print('Model Trained and Saved')
 
     else:
-        saver.restore(sess, save_path='./model/')
+        ckpt = tf.train.latest_checkpoint('./checkpoint/')
+        saver.restore(sess, ckpt)
         # convert the input data fromat
-        while(True):
+        while (True):
             test_input = raw_input(">>")
-            converted_input = [source_letter_to_int['<GO>']] + [source_letter_to_int[c] for c in test_input] + [
+            converted_input = [source_letter_to_int[c] for c in test_input] + [
                 source_letter_to_int['<EOS>']]
             result = sess.run(
                 prediction,
@@ -341,5 +345,5 @@ with tf.Session(graph=train_graph) as sess:
                  source_sequence_length: [len(converted_input) * 2] * batch_size
                  })
             print "result:\n"
-            print  ' '.join(map(lambda x: target_int_to_letter[x], result[0]))
+            print ' '.join(map(lambda x: target_int_to_letter[x], result[0]))
             print '\n'
