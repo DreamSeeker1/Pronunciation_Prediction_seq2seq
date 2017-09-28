@@ -4,6 +4,7 @@ import tensorflow as tf
 import pickle
 
 # parameters
+
 # Number of Epochs
 epochs = 60
 # Batch Size
@@ -21,6 +22,10 @@ learning_rate = 0.001
 C_type = 0
 # decoder type 0 for basic, 1 for beam search
 D_type = 0
+# 1 for training, 0 for test the already trained model
+isTrain = 0
+# display step for training
+display_step = 50
 
 # import the data
 with open('data.pickle', 'r') as f:
@@ -243,27 +248,26 @@ def get_batches(targets, sources, batch_size, source_pad_int, target_pad_int):
         yield pad_targets_batch, pad_sources_batch, targets_lengths, source_lengths
 
 
-# shuffle the data set
-permu = np.random.permutation(len(source_int))
-source_int_shuffle = []
-target_int_shuffle = []
+if isTrain:
+    # shuffle the data set
+    permu = np.random.permutation(len(source_int))
+    source_int_shuffle = []
+    target_int_shuffle = []
 
-for i in permu:
-    source_int_shuffle.append(source_int[i])
-    target_int_shuffle.append(target_int[i])
+    for i in permu:
+        source_int_shuffle.append(source_int[i])
+        target_int_shuffle.append(target_int[i])
 
-train_source = source_int_shuffle[batch_size:]
-train_target = target_int_shuffle[batch_size:]
+    train_source = source_int_shuffle[batch_size:]
+    train_target = target_int_shuffle[batch_size:]
 
-valid_source = source_int_shuffle[:batch_size]
-valid_target = target_int_shuffle[:batch_size]
+    valid_source = source_int_shuffle[:batch_size]
+    valid_target = target_int_shuffle[:batch_size]
 
-(valid_targets_batch, valid_sources_batch, valid_targets_lengths, valid_sources_lengths) = next(
-    get_batches(valid_target, valid_source, batch_size,
-                source_letter_to_int['<PAD>'],
-                target_letter_to_int['<PAD>']))
-
-display_step = 50
+    (valid_targets_batch, valid_sources_batch, valid_targets_lengths, valid_sources_lengths) = next(
+        get_batches(valid_target, valid_source, batch_size,
+                    source_letter_to_int['<PAD>'],
+                    target_letter_to_int['<PAD>']))
 
 with tf.Session(graph=train_graph) as sess:
     # define summary
@@ -276,48 +280,66 @@ with tf.Session(graph=train_graph) as sess:
     # define saver
     saver = tf.train.Saver()
 
-    for epoch_i in range(1, epochs + 1):
-        for batch_i, (targets_batch, sources_batch, targets_lengths, sources_lengths) in enumerate(
-                get_batches(train_target, train_source, batch_size,
-                            source_letter_to_int['<PAD>'],
-                            target_letter_to_int['<PAD>'])):
-            # get global step
-            step = tf.train.global_step(sess, global_step)
-            if step % 1000 == 0:
-                # save the model every 1000 steps
-                saver.save(sess, save_path='./checkpoint/', global_step=step)
+    if isTrain:
+        for epoch_i in range(1, epochs + 1):
+            for batch_i, (targets_batch, sources_batch, targets_lengths, sources_lengths) in enumerate(
+                    get_batches(train_target, train_source, batch_size,
+                                source_letter_to_int['<PAD>'],
+                                target_letter_to_int['<PAD>'])):
+                # get global step
+                step = tf.train.global_step(sess, global_step)
+                if step % 1000 == 0:
+                    # save the model every 1000 steps
+                    saver.save(sess, save_path='./checkpoint/', global_step=step)
 
-            t_c, _, loss = sess.run(
-                [training_cost_summary, train_op, train_cost],
-                {input_data: sources_batch,
-                 targets: targets_batch,
-                 lr: learning_rate,
-                 target_sequence_length: targets_lengths,
-                 source_sequence_length: sources_lengths,
-                 cell_type: C_type,
-                 decoder_type: D_type})
-
-            if batch_i % display_step == 0:
-                v_c, validation_loss = sess.run(
-                    [validation_cost_summary, validation_cost],
-                    {input_data: valid_sources_batch,
-                     targets: valid_targets_batch,
+                t_c, _, loss = sess.run(
+                    [training_cost_summary, train_op, train_cost],
+                    {input_data: sources_batch,
+                     targets: targets_batch,
                      lr: learning_rate,
-                     target_sequence_length: valid_targets_lengths,
-                     source_sequence_length: valid_sources_lengths,
+                     target_sequence_length: targets_lengths,
+                     source_sequence_length: sources_lengths,
                      cell_type: C_type,
-                     decoder_type: D_type
-                     })
-                t_s.add_summary(t_c, global_step=step)
-                v_s.add_summary(v_c, global_step=step)
-                print('Epoch {:>3}/{} Batch {:>4}/{} - Training Loss: {:>6.3f}  - Validation loss: {:>6.3f}'
-                      .format(epoch_i,
-                              epochs,
-                              batch_i,
-                              len(train_source) // batch_size,
-                              loss,
-                              validation_loss))
+                     decoder_type: D_type})
 
-    # save the model when finished
-    saver.save(sess, save_path='./model/')
-    print('Model Trained and Saved')
+                if batch_i % display_step == 0:
+                    v_c, validation_loss = sess.run(
+                        [validation_cost_summary, validation_cost],
+                        {input_data: valid_sources_batch,
+                         targets: valid_targets_batch,
+                         lr: learning_rate,
+                         target_sequence_length: valid_targets_lengths,
+                         source_sequence_length: valid_sources_lengths,
+                         cell_type: C_type,
+                         decoder_type: D_type
+                         })
+                    t_s.add_summary(t_c, global_step=step)
+                    v_s.add_summary(v_c, global_step=step)
+                    print('Epoch {:>3}/{} Batch {:>4}/{} - Training Loss: {:>6.3f}  - Validation loss: {:>6.3f}'
+                          .format(epoch_i,
+                                  epochs,
+                                  batch_i,
+                                  len(train_source) // batch_size,
+                                  loss,
+                                  validation_loss))
+
+        # save the model when finished
+        saver.save(sess, save_path='./model/')
+        print('Model Trained and Saved')
+
+    else:
+        saver.restore(sess, save_path='./model/')
+        # convert the input data fromat
+        while(True):
+            test_input = raw_input(">>")
+            converted_input = [source_letter_to_int['<GO>']] + [source_letter_to_int[c] for c in test_input] + [
+                source_letter_to_int['<EOS>']]
+            result = sess.run(
+                prediction,
+                {input_data: [converted_input] * batch_size,
+                 target_sequence_length: [len(converted_input) * 2] * batch_size,
+                 source_sequence_length: [len(converted_input) * 2] * batch_size
+                 })
+            print "result:\n"
+            print  ' '.join(map(lambda x: target_int_to_letter[x], result[0]))
+            print '\n'
