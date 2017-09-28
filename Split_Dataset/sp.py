@@ -20,12 +20,16 @@ seq = np.random.permutation(len(t_source_list))
 
 step = 0
 
-train_source = open('./train/train_source', 'w')
-train_target = open('./train/train_target', 'w')
-test_source = open('./test/test_source', 'w')
-test_target = open('./test/test_target', 'w')
-validation_source = open('./validation/validation_source', 'w')
-validation_target = open('./validation/validation_target', 'w')
+# train_source = open('./train/train_source', 'w')
+# train_target = open('./train/train_target', 'w')
+# test_source = open('./test/test_source', 'w')
+# test_target = open('./test/test_target', 'w')
+# validation_source = open('./validation/validation_source', 'w')
+# validation_target = open('./validation/validation_target', 'w')
+
+training = open('./training', 'w')
+testing = open('./testing', 'w')
+validation = open('./validation', 'w')
 
 data = []
 
@@ -33,20 +37,25 @@ for i in seq:
     data.append((t_source_list[i], t_target_list[i]))
 
 
-def to_file(data, source_name, target_name):
+def to_file(data, path_name):
     data.sort()
     for it in t:
-        source_name.write(it[0] + '\n')
-        target_name.write(it[1] + '\n')
+        path_name.write(it[0] + ' ' + it[1] + '\n')
+
+# def to_file(data, source_name, target_name):
+#     data.sort()
+#     for it in t:
+#         source_name.write(it[0] + '\n')
+#         target_name.write(it[1] + '\n')
 
 
 t = data[0:10000][:]
 assert(len(t) == 10000)
-to_file(t, validation_source, validation_target)
+to_file(t, validation)
 
 t = data[10000:20000][:]
 assert(len(t) == 10000)
-to_file(t, test_source, test_target)
+to_file(t, testing)
 
 t = data[20000:][:]
-to_file(t, train_source, train_target)
+to_file(t, training)
