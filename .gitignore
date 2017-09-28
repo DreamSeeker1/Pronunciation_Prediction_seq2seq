@@ -4,4 +4,4 @@
 tensor_seq/checkpoint/
 tensor_seq/graph/
 tensor_seq/model/
-
+Split_Dataset/cmudict.0.7a
