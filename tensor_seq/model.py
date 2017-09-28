@@ -135,7 +135,7 @@ def process_decoder_input(data, vocab_to_int, batch_size):
 def seq2seq_model(input_data, targets, lr, target_sequence_length,
                   max_target_sequence_length, source_sequence_length,
                   source_vocab_size, target_vocab_size,
-                  encoder_embedding_size, decoder_embedding_size,
+                  encoder_embedding_size, decoding_embedding_size,
                   rnn_size, num_layers, cell_type, decoder_type):
     _, encoder_state = get_encoder_layer(input_data,
                                          rnn_size,
