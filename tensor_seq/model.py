@@ -8,7 +8,7 @@ import pickle
 # Number of Epochs
 epochs = 60
 # Batch Size
-batch_size = 1024
+batch_size = 512
 # RNN Size
 rnn_size = 256
 # Number of Layers
@@ -21,9 +21,11 @@ learning_rate = 0.001
 # cell type 0 for lstm, 1 for GRU
 Cell_type = 0
 # decoder type 0 for basic, 1 for beam search
-Decoder_type = 0
+Decoder_type = 1
+# beam width for beam search decoder
+beam_width = 4
 # 1 for training, 0 for test the already trained model
-isTrain = 1
+isTrain = 0
 # display step for training
 display_step = 50
 
@@ -123,7 +125,18 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
                                                                             impute_finished=True,
                                                                             maximum_iterations=max_target_sequence_length)
 
-    return training_decoder_output, predicting_decoder_output
+
+        tiled_start_tokens = tf.contrib.seq2seq.tile_batch(start_tokens, beam_width)
+        tiled_encoder_state = tf.contrib.seq2seq.tile_batch(encoder_state, beam_width)
+        bm_decoder = tf.contrib.seq2seq.BeamSearchDecoder(cell, decoder_embeddings, start_tokens,
+                                                          target_letter_to_int['<EOS>'], tiled_encoder_state,
+                                                          beam_width, output_layer)
+
+        # impute_finished must be set to false when using beam search decoder
+        # https://github.com/tensorflow/tensorflow/issues/11598
+        bm_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(bm_decoder,
+                                                                    maximum_iterations=max_target_sequence_length)
+    return training_decoder_output, predicting_decoder_output, bm_decoder_output
 
 
 # add <GO> and strip the last character for the input of the training decoder
@@ -149,16 +162,16 @@ def seq2seq_model(input_data, targets, target_sequence_length,
 
     decoder_input = process_decoder_input(targets, target_letter_to_int, batch_size)
 
-    training_decoder_output, predicting_decoder_output = decoding_layer(target_letter_to_int,
-                                                                        decoding_embedding_size,
-                                                                        num_layers,
-                                                                        rnn_size,
-                                                                        target_sequence_length,
-                                                                        max_target_sequence_length,
-                                                                        encoder_state,
-                                                                        decoder_input)
+    training_decoder_output, predicting_decoder_output, bm_decoder_output = decoding_layer(target_letter_to_int,
+                                                                                           decoding_embedding_size,
+                                                                                           num_layers,
+                                                                                           rnn_size,
+                                                                                           target_sequence_length,
+                                                                                           max_target_sequence_length,
+                                                                                           encoder_state,
+                                                                                           decoder_input)
 
-    return training_decoder_output, predicting_decoder_output
+    return training_decoder_output, predicting_decoder_output, bm_decoder_output
 
 
 # define the compute graph
@@ -172,7 +185,7 @@ with train_graph.as_default():
     v_c = tf.summary.scalar("validation_cost", average_vali_loss)
 
     # get the output of the seq2seq model
-    training_decoder_output, predicting_decoder_output = seq2seq_model(input_data,
+    training_decoder_output, predicting_decoder_output, bm_decoder_output = seq2seq_model(input_data,
                                                                        targets,
                                                                        target_sequence_length,
                                                                        max_target_sequence_length,
@@ -187,7 +200,7 @@ with train_graph.as_default():
     predicting_logits = tf.identity(predicting_decoder_output.rnn_output, 'predicting_logits')
     # the result of the prediction
     prediction = tf.identity(predicting_decoder_output.sample_id, 'prediction_result')
-
+    bm_prediction = tf.identity(bm_decoder_output.predicted_ids, 'bm_prediction_result')
     masks = tf.sequence_mask(target_sequence_length, max_target_sequence_length, dtype=tf.float32, name='masks')
 
     with tf.name_scope("optimization"):
@@ -338,12 +351,31 @@ with tf.Session(graph=train_graph) as sess:
             test_input = raw_input(">>")
             converted_input = [source_letter_to_int[c] for c in test_input] + [
                 source_letter_to_int['<EOS>']]
-            result = sess.run(
-                prediction,
-                {input_data: [converted_input] * batch_size,
-                 target_sequence_length: [len(converted_input) * 2] * batch_size,
-                 source_sequence_length: [len(converted_input) * 2] * batch_size
-                 })
-            print "result:\n"
-            print ' '.join(map(lambda x: target_int_to_letter[x], result[0]))
-            print '\n'
+            if Decoder_type == 0:
+                result = sess.run(
+                    prediction,
+                    {input_data: [converted_input] * batch_size,
+                     target_sequence_length: [len(converted_input) * 2] * batch_size,
+                     source_sequence_length: [len(converted_input) * 2] * batch_size
+                     })
+                print "result:\n"
+                print result[0]
+                print ' '.join(map(lambda x: target_int_to_letter[x], result[0]))
+                print '\n'
+            else:
+                result = sess.run(
+                    bm_prediction,
+                    {input_data: [converted_input] * batch_size,
+                     target_sequence_length: [len(converted_input) * 2] * batch_size,
+                     source_sequence_length: [len(converted_input) * 2] * batch_size
+                     })
+                print "result:\n"
+                for i in xrange(beam_width):
+                    print result[0, :, i]
+                    tmp = []
+                    for id in result[0, :, i]:
+                        tmp.append(target_int_to_letter[id])
+                        if id == target_letter_to_int['<EOS>']:
+                            print ' '.join(tmp)
+                            break
+                    print ''
