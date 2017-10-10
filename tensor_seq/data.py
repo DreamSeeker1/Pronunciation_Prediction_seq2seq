@@ -1,11 +1,17 @@
 import pickle
-
 # open the file contains data
-with open('/home/yy/pronunciation-prediction/tensor_seq/source_list') as f:
+with open('./source_list') as f:
     source_data = f.read().split('\n')
-with open('/home/yy/pronunciation-prediction/tensor_seq/target_list') as f:
+with open('./target_list') as f:
     target_data = f.read().split('\n')
 
+# map the word with the pronunciation
+word_pron = {}
+for word, pron in zip(source_data, target_data):
+    if word in word_pron:
+        word_pron[word].add(pron)
+    else:
+        word_pron[word] = {pron}
 
 # map the character and pronunciation to idx
 def word2index(data):
@@ -37,4 +43,4 @@ target_int = [[target_letter_to_int.get(letter, target_letter_to_int['<UNK>'])
 
 with open('data.pickle', 'w') as f:
     pickle.dump([source_int_to_letter, source_letter_to_int, target_int_to_letter, target_letter_to_int, source_int,
-                 target_int], f)
+                 target_int, word_pron], f)

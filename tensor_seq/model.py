@@ -6,7 +6,7 @@ import pickle
 # parameters
 
 # Number of Epochs
-epochs = 5
+epochs = 1
 # Batch Size
 batch_size = 512
 # RNN Size
@@ -14,7 +14,7 @@ rnn_size = 256
 # Number of Layers
 num_layers = 2
 # Embedding Size
-encoding_embedding_size = 20
+encoding_embedding_size = 40
 decoding_embedding_size = encoding_embedding_size
 # Learning Rate
 learning_rate = 0.001
@@ -23,16 +23,17 @@ Cell_type = 1
 # decoder type 0 for basic, 1 for beam search
 Decoder_type = 1
 # beam width for beam search decoder
-beam_width = 10
+beam_width = 3
 # 1 for training, 0 for test the already trained model
-isTrain = 0
+isTrain = 1
 # display step for training
 display_step = 50
 
 # import the data
 with open('data.pickle', 'r') as f:
-    source_int_to_letter, source_letter_to_int, target_int_to_letter, target_letter_to_int, source_int, target_int = pickle.load(
-        f)
+    source_int_to_letter, source_letter_to_int, \
+    target_int_to_letter, target_letter_to_int, source_int, target_int, \
+    word_pron = pickle.load(f)
 
 
 # input of the model
@@ -122,7 +123,6 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
                                                              encoder_state,
                                                              output_layer)
         predicting_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
-                                                                            impute_finished=True,
                                                                             maximum_iterations=max_target_sequence_length)
 
         tiled_encoder_state = tf.contrib.seq2seq.tile_batch(encoder_state, beam_width)
@@ -268,11 +268,29 @@ if isTrain:
         source_int_shuffle.append(source_int[i])
         target_int_shuffle.append(target_int[i])
 
-    train_source = source_int_shuffle[10 * batch_size:]
-    train_target = target_int_shuffle[10 * batch_size:]
+    train_source = source_int_shuffle[20 * batch_size:]
+    train_target = target_int_shuffle[20 * batch_size:]
 
-    valid_source = source_int_shuffle[:10 * batch_size]
-    valid_target = target_int_shuffle[:10 * batch_size]
+    valid_source = source_int_shuffle[:20 * batch_size]
+    valid_target = target_int_shuffle[:20 * batch_size]
+
+# calculate the error of the prediction
+def cal_error(input_batch, predicition_result):
+    t_error = 0.0
+    for char_ids, pron_ids in zip(input_batch, predicition_result):
+        t_word = map(lambda x:source_int_to_letter[x], char_ids)
+        try:
+            word = ''.join(t_word[:t_word.index('<PAD>')])
+        except ValueError:
+            word = ''.join(t_word)
+        t_pron = map(lambda x:target_int_to_letter[x], pron_ids)
+        try:
+            pron = ' '.join(t_pron[:t_pron.index('<EOS>')])
+        except ValueError:
+            pron = ' '.join(t_pron)
+        if pron not in word_pron[word]:
+            t_error += 1
+    return t_error
 
 with tf.Session(graph=train_graph) as sess:
     # define summary
@@ -341,11 +359,32 @@ with tf.Session(graph=train_graph) as sess:
                                   vali_loss))
 
         # save the model when finished
-        saver.save(sess, save_path='./model/')
+        saver.save(sess, save_path='./model/model.ckpt', global_step=step)
         print('Model Trained and Saved')
 
+        # calculate the word error rate (WER) of the model
+        error = 0.0
+        for _, (
+                valid_targets_batch, valid_sources_batch, valid_targets_lengths,
+                valid_source_lengths) in enumerate(
+            get_batches(valid_target, valid_source, batch_size,
+                        source_letter_to_int['<PAD>'],
+                        target_letter_to_int['<PAD>'])
+        ):
+            # prediction of the basic decoder
+            basic_prediction = sess.run(prediction,
+                                         {input_data: valid_sources_batch,
+                                          targets: valid_targets_batch,
+                                          target_sequence_length: valid_targets_lengths,
+                                          source_sequence_length: valid_source_lengths}
+                                         )
+
+            error += cal_error(valid_sources_batch, basic_prediction)
+        print 'Word Error Rate:{:.2%}'.format(error / len(valid_target))
+
+
     else:
-        ckpt = tf.train.latest_checkpoint('./checkpoint/')
+        ckpt = tf.train.latest_checkpoint('./model/model.ckpt')
         saver.restore(sess, ckpt)
         # convert the input data fromat
         while (True):
@@ -356,10 +395,10 @@ with tf.Session(graph=train_graph) as sess:
             if Decoder_type == 0:
                 beam_width = 1
             result = sess.run(
-                [bm_prediction, bm_score],
+                [bm_prediction, bm_score, prediction],
                 {input_data: [converted_input] * batch_size,
                  target_sequence_length: [len(converted_input) * 2] * batch_size,
-                 source_sequence_length: [len(converted_input) * 2] * batch_size
+                 source_sequence_length: [len(converted_input)] * batch_size
                  })
             print "result:"
             for i in xrange(beam_width):
@@ -374,5 +413,7 @@ with tf.Session(graph=train_graph) as sess:
                 # prediction length exceeds the max length
                 if not flag:
                     print ' '.join(tmp)
+
+                # print the score of the result
                 print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
                 print ''
