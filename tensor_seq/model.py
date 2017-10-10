@@ -6,7 +6,7 @@ import pickle
 # parameters
 
 # Number of Epochs
-epochs = 1
+epochs = 20
 # Batch Size
 batch_size = 512
 # RNN Size
@@ -313,7 +313,7 @@ with tf.Session(graph=train_graph) as sess:
                 step = tf.train.global_step(sess, global_step)
                 if step % 1000 == 0:
                     # save the model every 1000 steps
-                    saver.save(sess, save_path='./checkpoint/', global_step=step)
+                    saver.save(sess, save_path='./model/model.ckpt', global_step=step)
 
                 t_c, _, loss = sess.run(
                     [training_cost_summary, train_op, train_cost],

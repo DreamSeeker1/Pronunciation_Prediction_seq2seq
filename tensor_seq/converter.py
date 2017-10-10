@@ -5,7 +5,7 @@
 
 import re
 
-f = open('./cmudict.0.7a', 'r')
+f = open('../cmudict.0.7a', 'r')
 source_list = open('source_list', 'w')
 target_list = open('target_list', 'w')
 for line in f.readlines():

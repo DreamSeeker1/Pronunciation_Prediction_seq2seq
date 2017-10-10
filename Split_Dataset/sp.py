@@ -1,6 +1,6 @@
 import re
 import numpy as np
-f = open('./cmudict.0.7a', 'r')
+f = open('../cmudict.0.7a', 'r')
 
 t_source_list = []
 t_target_list = []

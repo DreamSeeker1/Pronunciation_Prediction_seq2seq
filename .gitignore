@@ -4,4 +4,11 @@
 tensor_seq/checkpoint/
 tensor_seq/graph/
 tensor_seq/model/
+tensor_seq/source_list
+tensor_seq/target_list
+tensor_seq/data.pickle
 Split_Dataset/cmudict.0.7a
+Split_Dataset/training
+Split_Dataset/testing
+Split_Dataset/validation
+
