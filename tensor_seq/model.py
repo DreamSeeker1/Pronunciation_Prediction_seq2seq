@@ -6,7 +6,7 @@ import pickle
 # parameters
 
 # Number of Epochs
-epochs = 20
+epochs = 60
 # Batch Size
 batch_size = 512
 # RNN Size
@@ -384,7 +384,7 @@ with tf.Session(graph=train_graph) as sess:
 
 
     else:
-        ckpt = tf.train.latest_checkpoint('./model/model.ckpt')
+        ckpt = tf.train.latest_checkpoint('./model')
         saver.restore(sess, ckpt)
         # convert the input data fromat
         while (True):
