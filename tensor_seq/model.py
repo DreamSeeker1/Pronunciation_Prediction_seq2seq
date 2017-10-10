@@ -352,36 +352,27 @@ with tf.Session(graph=train_graph) as sess:
             test_input = raw_input(">>")
             converted_input = [source_letter_to_int[c] for c in test_input] + [
                 source_letter_to_int['<EOS>']]
+            # if the decoder type is 0, use the basic decoder, same as set beam width to 0
             if Decoder_type == 0:
-                result = sess.run(
-                    prediction,
-                    {input_data: [converted_input] * batch_size,
-                     target_sequence_length: [len(converted_input) * 2] * batch_size,
-                     source_sequence_length: [len(converted_input) * 2] * batch_size
-                     })
-                print "result:"
-                # print result[0]
-                print ' '.join(map(lambda x: target_int_to_letter[x], result[0]))
-                print ''
-            else:
-                result = sess.run(
-                    [bm_prediction, bm_score],
-                    {input_data: [converted_input] * batch_size,
-                     target_sequence_length: [len(converted_input) * 2] * batch_size,
-                     source_sequence_length: [len(converted_input) * 2] * batch_size
-                     })
-                print "result:"
-                for i in xrange(beam_width):
-                    tmp = []
-                    flag = 0
-                    for id in result[0][0, :, i]:
-                        tmp.append(target_int_to_letter[id])
-                        if id == target_letter_to_int['<EOS>']:
-                            print ' '.join(tmp)
-                            flag = 1
-                            break
-                    # prediction length exceeds the max length
-                    if not flag:
+                beam_width = 1
+            result = sess.run(
+                [bm_prediction, bm_score],
+                {input_data: [converted_input] * batch_size,
+                 target_sequence_length: [len(converted_input) * 2] * batch_size,
+                 source_sequence_length: [len(converted_input) * 2] * batch_size
+                 })
+            print "result:"
+            for i in xrange(beam_width):
+                tmp = []
+                flag = 0
+                for id in result[0][0, :, i]:
+                    tmp.append(target_int_to_letter[id])
+                    if id == target_letter_to_int['<EOS>']:
                         print ' '.join(tmp)
-                    print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
-                    print ''
+                        flag = 1
+                        break
+                # prediction length exceeds the max length
+                if not flag:
+                    print ' '.join(tmp)
+                print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
+                print ''
