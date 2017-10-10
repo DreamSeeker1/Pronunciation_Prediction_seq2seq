@@ -6,7 +6,7 @@ import pickle
 # parameters
 
 # Number of Epochs
-epochs = 60
+epochs = 5
 # Batch Size
 batch_size = 512
 # RNN Size
@@ -19,11 +19,11 @@ decoding_embedding_size = encoding_embedding_size
 # Learning Rate
 learning_rate = 0.001
 # cell type 0 for lstm, 1 for GRU
-Cell_type = 0
+Cell_type = 1
 # decoder type 0 for basic, 1 for beam search
 Decoder_type = 1
 # beam width for beam search decoder
-beam_width = 4
+beam_width = 10
 # 1 for training, 0 for test the already trained model
 isTrain = 0
 # display step for training
@@ -93,7 +93,7 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
 
     # output fully connected layer
     output_layer = Dense(target_vocab_size,
-                         kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.1))
+                         kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.1), name="dense_layer")
 
     # Training decoder
     with tf.variable_scope("decode"):
@@ -125,8 +125,6 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
                                                                             impute_finished=True,
                                                                             maximum_iterations=max_target_sequence_length)
 
-
-        tiled_start_tokens = tf.contrib.seq2seq.tile_batch(start_tokens, beam_width)
         tiled_encoder_state = tf.contrib.seq2seq.tile_batch(encoder_state, beam_width)
         bm_decoder = tf.contrib.seq2seq.BeamSearchDecoder(cell, decoder_embeddings, start_tokens,
                                                           target_letter_to_int['<EOS>'], tiled_encoder_state,
@@ -186,15 +184,15 @@ with train_graph.as_default():
 
     # get the output of the seq2seq model
     training_decoder_output, predicting_decoder_output, bm_decoder_output = seq2seq_model(input_data,
-                                                                       targets,
-                                                                       target_sequence_length,
-                                                                       max_target_sequence_length,
-                                                                       source_sequence_length,
-                                                                       len(source_letter_to_int),
-                                                                       encoding_embedding_size,
-                                                                       decoding_embedding_size,
-                                                                       rnn_size,
-                                                                       num_layers)
+                                                                                          targets,
+                                                                                          target_sequence_length,
+                                                                                          max_target_sequence_length,
+                                                                                          source_sequence_length,
+                                                                                          len(source_letter_to_int),
+                                                                                          encoding_embedding_size,
+                                                                                          decoding_embedding_size,
+                                                                                          rnn_size,
+                                                                                          num_layers)
     # get the logits to compute the loss
     training_logits = tf.identity(training_decoder_output.rnn_output, 'training_logits')
     predicting_logits = tf.identity(predicting_decoder_output.rnn_output, 'predicting_logits')
@@ -202,6 +200,9 @@ with train_graph.as_default():
     prediction = tf.identity(predicting_decoder_output.sample_id, 'prediction_result')
     bm_prediction = tf.identity(bm_decoder_output.predicted_ids, 'bm_prediction_result')
     masks = tf.sequence_mask(target_sequence_length, max_target_sequence_length, dtype=tf.float32, name='masks')
+
+    # the score of the beam search prediction
+    bm_score = tf.identity(bm_decoder_output.beam_search_decoder_output.scores, 'bm_prediction_scores')
 
     with tf.name_scope("optimization"):
         # Loss function
@@ -358,24 +359,29 @@ with tf.Session(graph=train_graph) as sess:
                      target_sequence_length: [len(converted_input) * 2] * batch_size,
                      source_sequence_length: [len(converted_input) * 2] * batch_size
                      })
-                print "result:\n"
-                print result[0]
+                print "result:"
+                # print result[0]
                 print ' '.join(map(lambda x: target_int_to_letter[x], result[0]))
-                print '\n'
+                print ''
             else:
                 result = sess.run(
-                    bm_prediction,
+                    [bm_prediction, bm_score],
                     {input_data: [converted_input] * batch_size,
                      target_sequence_length: [len(converted_input) * 2] * batch_size,
                      source_sequence_length: [len(converted_input) * 2] * batch_size
                      })
-                print "result:\n"
+                print "result:"
                 for i in xrange(beam_width):
-                    print result[0, :, i]
                     tmp = []
-                    for id in result[0, :, i]:
+                    flag = 0
+                    for id in result[0][0, :, i]:
                         tmp.append(target_int_to_letter[id])
                         if id == target_letter_to_int['<EOS>']:
                             print ' '.join(tmp)
+                            flag = 1
                             break
+                    # prediction length exceeds the max length
+                    if not flag:
+                        print ' '.join(tmp)
+                    print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
                     print ''
