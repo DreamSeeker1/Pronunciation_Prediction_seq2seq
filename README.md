@@ -21,7 +21,7 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 使用Gradient Clipping 防止梯度爆炸。
 
 原理参考： [从Encoder到Decoder实现Seq2Seq模型](https://zhuanlan.zhihu.com/p/27608348)
-![](https://raw.githubusercontent.com/yanwii/seq2seq/master/img/beamsearch.png)
+![](https://pic4.zhimg.com/v2-278b5920ac2b4fc8c2319c90eaa7f9db_r.png)
 
 ##### 基本流程
 1. 首先将输入输出序列中的各个元素（单词以字母为单位，发音以音节为单位）拆分，分别加入`<PAD>`，`<UNK>`，`<GO>`，`<EOS>`并且分配id
@@ -48,7 +48,7 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 * [tf.clip_by_value](https://www.tensorflow.org/versions/master/api_docs/python/tf/clip_by_value) 根据给定范围对梯度进行剪裁。
 ##### Beam Search 算法介绍
 一种广度优先算法，可以产生多个候选序列。
-![](https://pic1.zhimg.com/50/v2-ac1ed21968223df5fd82d39f7c391f5c_hd.png)
+![](https://raw.githubusercontent.com/yanwii/seq2seq/master/img/beamsearch.png)
 [Wiki 介绍](https://en.wikipedia.org/wiki/Beam_search)
 [知乎 介绍](https://www.zhihu.com/question/54356960)
 
