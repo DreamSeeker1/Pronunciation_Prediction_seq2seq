@@ -8,18 +8,18 @@ import pickle
 # Number of Epochs
 epochs = 60
 # Batch Size
-batch_size = 512
+batch_size = 256
 # RNN Size
 rnn_size = 256
 # Number of Layers
 num_layers = 2
 # Embedding Size
-encoding_embedding_size = 40
+encoding_embedding_size = 256
 decoding_embedding_size = encoding_embedding_size
 # Learning Rate
 learning_rate = 0.001
 # cell type 0 for lstm, 1 for GRU
-Cell_type = 1
+Cell_type = 0
 # decoder type 0 for basic, 1 for beam search
 Decoder_type = 1
 # beam width for beam search decoder
@@ -71,12 +71,12 @@ def get_encoder_layer(input_data, rnn_size, num_layers,
                       encoding_embedding_size):
     # Encoder embedding
     encoder_embed_input = tf.contrib.layers.embed_sequence(input_data, source_vocab_size, encoding_embedding_size)
+    with tf.variable_scope("encoder"):
+        # RNN cell
+        cell = construct_cell(rnn_size, num_layers)
 
-    # RNN cell
-    cell = construct_cell(rnn_size, num_layers)
-
-    encoder_output, encoder_state = tf.nn.dynamic_rnn(cell, encoder_embed_input,
-                                                      sequence_length=source_sequence_length, dtype=tf.float32)
+        encoder_output, encoder_state = tf.nn.dynamic_rnn(cell, encoder_embed_input,
+                                                          sequence_length=source_sequence_length, dtype=tf.float32)
 
     return encoder_output, encoder_state
 
@@ -97,7 +97,7 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
                          kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.1), name="dense_layer")
 
     # Training decoder
-    with tf.variable_scope("decode"):
+    with tf.variable_scope("decoder"):
         training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=decoder_embed_input,
                                                             sequence_length=target_sequence_length,
                                                             time_major=False)
@@ -111,7 +111,7 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
                                                                           maximum_iterations=max_target_sequence_length)
     # Predicting decoder
     # sharing parameters
-    with tf.variable_scope("decode", reuse=True):
+    with tf.variable_scope("decoder", reuse=True):
         start_tokens = tf.tile([tf.constant(target_letter_to_int['<GO>'], dtype=tf.int32)], [batch_size],
                                name='start_tokens')
         predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(decoder_embeddings,
@@ -220,7 +220,7 @@ with train_graph.as_default():
 
         # Gradient Clipping
         gradients = optimizer.compute_gradients(train_cost)
-        capped_gradients = [(tf.clip_by_value(grad, -5., 5.), var) for grad, var in gradients if grad is not None]
+        capped_gradients = [(tf.clip_by_norm(grad, 5.), var) for grad, var in gradients if grad is not None]
         train_op = optimizer.apply_gradients(capped_gradients, global_step=global_step)
     training_cost_summary = tf.summary.scalar('training_cost', train_cost)
 
@@ -272,11 +272,11 @@ if isTrain:
         source_int_shuffle.append(source_int[i])
         target_int_shuffle.append(target_int[i])
 
-    train_source = source_int_shuffle[20 * batch_size:]
-    train_target = target_int_shuffle[20 * batch_size:]
+    train_source = source_int_shuffle[50 * batch_size:]
+    train_target = target_int_shuffle[50 * batch_size:]
 
-    valid_source = source_int_shuffle[:20 * batch_size]
-    valid_target = target_int_shuffle[:20 * batch_size]
+    valid_source = source_int_shuffle[:50 * batch_size]
+    valid_target = target_int_shuffle[:50 * batch_size]
 
 
 # calculate the error of the prediction
@@ -305,7 +305,7 @@ with tf.Session(graph=train_graph) as sess:
     # run initializer
     sess.run(tf.global_variables_initializer())
 
-    # define saver, keep most recent 15 models
+    # define saver, keep 15 most recent models
     saver = tf.train.Saver(max_to_keep=15)
 
     if isTrain:
