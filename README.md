@@ -90,7 +90,7 @@ python data.py
 `data.py`对数据进行进一步的预处理，建立发音，字母和特殊字符与整数之间的映射词典，存入`data.pickle`中方便读取。
 
 与模型相关的参数位于`./tensor_seq/model.py`代码前部。
-```
+```python
 # Number of Epochs
 epochs = 20
 # Batch Size
