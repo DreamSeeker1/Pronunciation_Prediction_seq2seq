@@ -179,8 +179,12 @@ with train_graph.as_default():
     global_step = tf.train.create_global_step(train_graph)
     input_data, targets, lr, target_sequence_length, max_target_sequence_length, source_sequence_length = get_inputs()
 
+    # define the placeholder and summary of the validation loss and WER
     average_vali_loss = tf.placeholder(dtype=tf.float32)
+    WER_over_validation = tf.placeholder(dtype=tf.float32)
+
     v_c = tf.summary.scalar("validation_cost", average_vali_loss)
+    v_wer = tf.summary.scalar("validation_WER", WER_over_validation)
 
     # get the output of the seq2seq model
     training_decoder_output, predicting_decoder_output, bm_decoder_output = seq2seq_model(input_data,
@@ -274,16 +278,17 @@ if isTrain:
     valid_source = source_int_shuffle[:20 * batch_size]
     valid_target = target_int_shuffle[:20 * batch_size]
 
+
 # calculate the error of the prediction
 def cal_error(input_batch, predicition_result):
     t_error = 0.0
     for char_ids, pron_ids in zip(input_batch, predicition_result):
-        t_word = map(lambda x:source_int_to_letter[x], char_ids)
+        t_word = map(lambda x: source_int_to_letter[x], char_ids)
         try:
             word = ''.join(t_word[:t_word.index('<PAD>')])
         except ValueError:
             word = ''.join(t_word)
-        t_pron = map(lambda x:target_int_to_letter[x], pron_ids)
+        t_pron = map(lambda x: target_int_to_letter[x], pron_ids)
         try:
             pron = ' '.join(t_pron[:t_pron.index('<EOS>')])
         except ValueError:
@@ -292,11 +297,11 @@ def cal_error(input_batch, predicition_result):
             t_error += 1
     return t_error
 
+
 with tf.Session(graph=train_graph) as sess:
-    # define summary
+    # define summary file writer
     t_s = tf.summary.FileWriter('./graph/training', sess.graph)
     v_s = tf.summary.FileWriter('./graph/validation', sess.graph)
-
     # run initializer
     sess.run(tf.global_variables_initializer())
 
@@ -311,10 +316,6 @@ with tf.Session(graph=train_graph) as sess:
                                 target_letter_to_int['<PAD>'])):
                 # get global step
                 step = tf.train.global_step(sess, global_step)
-                if step % 1000 == 0:
-                    # save the model every 1000 steps
-                    saver.save(sess, save_path='./model/model.ckpt', global_step=step)
-
                 t_c, _, loss = sess.run(
                     [training_cost_summary, train_op, train_cost],
                     {input_data: sources_batch,
@@ -324,6 +325,8 @@ with tf.Session(graph=train_graph) as sess:
                      source_sequence_length: sources_lengths})
 
                 if batch_i % display_step == 0:
+                    # calculate the word error rate (WER) and validation loss of the model
+                    error = 0.0
                     vali_loss = []
                     for _, (
                             valid_targets_batch, valid_sources_batch, valid_targets_lengths,
@@ -332,61 +335,50 @@ with tf.Session(graph=train_graph) as sess:
                                     source_letter_to_int['<PAD>'],
                                     target_letter_to_int['<PAD>'])
                     ):
-                        validation_loss = sess.run(
-                            [validation_cost],
+                        validation_loss, basic_prediction = sess.run(
+                            [validation_cost, prediction],
                             {input_data: valid_sources_batch,
                              targets: valid_targets_batch,
                              lr: learning_rate,
                              target_sequence_length: valid_targets_lengths,
                              source_sequence_length: valid_source_lengths})
 
-                        vali_loss.append(validation_loss[0])
+                        vali_loss.append(validation_loss)
+                        error += cal_error(valid_sources_batch, basic_prediction)
 
-                    # calculate the validation cost over the validation dataset
+                    # calculate the validation cost and the WER over the validation dataset
                     vali_loss = sum(vali_loss) / len(vali_loss)
-                    vali_summary = sess.run(v_c, {average_vali_loss: vali_loss})
+                    WER = error / len(valid_target)
+                    vali_summary, wer_summary = sess.run([v_c, v_wer], {average_vali_loss: vali_loss,
+                                                                        WER_over_validation: WER
+                                                                        })
 
                     # write the cost to summery
                     t_s.add_summary(t_c, global_step=step)
                     v_s.add_summary(vali_summary, global_step=step)
+                    v_s.add_summary(wer_summary, global_step=step)
 
-                    print('Epoch {:>3}/{} Batch {:>4}/{} - Training Loss: {:>6.3f}  - Validation loss: {:>6.3f}'
-                          .format(epoch_i,
-                                  epochs,
-                                  batch_i,
-                                  len(train_source) // batch_size,
-                                  loss,
-                                  vali_loss))
-
+                    print(
+                        'Epoch {:>3}/{} Batch {:>4}/{} - Training Loss: {:>6.3f}  '
+                        '- Validation loss: {:>6.3f}'
+                        ' - WER: {:>6.2%} '.format(epoch_i,
+                                                   epochs,
+                                                   batch_i,
+                                                   len(train_source) // batch_size,
+                                                   loss,
+                                                   vali_loss,
+                                                   WER))
+            # save the model every epoch
+            saver.save(sess, save_path='./model/model.ckpt', global_step=step)
         # save the model when finished
         saver.save(sess, save_path='./model/model.ckpt', global_step=step)
         print('Model Trained and Saved')
-
-        # calculate the word error rate (WER) of the model
-        error = 0.0
-        for _, (
-                valid_targets_batch, valid_sources_batch, valid_targets_lengths,
-                valid_source_lengths) in enumerate(
-            get_batches(valid_target, valid_source, batch_size,
-                        source_letter_to_int['<PAD>'],
-                        target_letter_to_int['<PAD>'])
-        ):
-            # prediction of the basic decoder
-            basic_prediction = sess.run(prediction,
-                                         {input_data: valid_sources_batch,
-                                          targets: valid_targets_batch,
-                                          target_sequence_length: valid_targets_lengths,
-                                          source_sequence_length: valid_source_lengths}
-                                         )
-
-            error += cal_error(valid_sources_batch, basic_prediction)
-        print 'Word Error Rate:{:.2%}'.format(error / len(valid_target))
 
 
     else:
         ckpt = tf.train.latest_checkpoint('./model')
         saver.restore(sess, ckpt)
-        # convert the input data fromat
+        # convert the input data format
         while (True):
             test_input = raw_input(">>")
             converted_input = [source_letter_to_int[c] for c in test_input] + [
