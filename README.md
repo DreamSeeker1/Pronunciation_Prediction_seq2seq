@@ -21,7 +21,7 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 使用Gradient Clipping 防止梯度爆炸。
 
 原理参考： [从Encoder到Decoder实现Seq2Seq模型](https://zhuanlan.zhihu.com/p/27608348)
-![](https://pic4.zhimg.com/v2-278b5920ac2b4fc8c2319c90eaa7f9db_r.png)
+![](https://raw.githubusercontent.com/yanwii/seq2seq/master/img/beamsearch.png)
 
 ##### 基本流程
 1. 首先将输入输出序列中的各个元素（单词以字母为单位，发音以音节为单位）拆分，分别加入`<PAD>`，`<UNK>`，`<GO>`，`<EOS>`并且分配id
@@ -42,28 +42,7 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 * [tf.contrib.layers.embed_sequence](https://www.tensorflow.org/api_docs/python/tf/contrib/layers/embed_sequence) 输入符号序列，符号数量和embedding的维度，将符号序列映射成为embedding序列。
 * [tf.nn.dynamic_rnn](https://www.tensorflow.org/api_docs/python/tf/nn/dynamic_rnn) 根据给的RNNCell构建RNN网络，并且根据输入的序列长度动态计算输出，返回值`output`为每个时刻 t 网络的输出，`state`为网络最终的最终状态。
 * [tf.contrib.seq2seq.dynamic_decode](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/dynamic_decode) 根据采用的decoder进行解码。
-* [tf.contrib.seq2seq.BasicDecoder](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/BasicDecoder) 一种用于`tf.contrib.seq2seq.dynamic_decode`解码的decoder类型，根据`helper`的不同可以用来训练模型([tf.contrib.seq2seq.TrainingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/TrainingHelper))和使用模型进行预测([tf.contrib.seq2seq.GreedyEmbeddingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/GreedyEmbeddingHelper))，常见用法如下：
-    ```python
-	cell = # instance of RNNCell
-	if mode == "train":
-	  helper = tf.contrib.seq2seq.TrainingHelper(
-		input=input_vectors,
-		sequence_length=input_lengths)
-	elif mode == "infer":
-	  helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-		  embedding=embedding,
-		  start_tokens=tf.tile([GO_SYMBOL], [batch_size]),
-		  end_token=END_SYMBOL)
-	decoder = tf.contrib.seq2seq.BasicDecoder(
-		cell=cell,
-		helper=helper,
-		initial_state=cell.zero_state(batch_size, tf.float32))
-	outputs, _ = tf.contrib.seq2seq.dynamic_decode(
-	   decoder=decoder,
-	   output_time_major=False,
-	   impute_finished=True,
-	   maximum_iterations=20)
-    ```
+* [tf.contrib.seq2seq.BasicDecoder](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/BasicDecoder) 一种用于`tf.contrib.seq2seq.dynamic_decode`解码的decoder类型，根据`helper`的不同可以用来训练模型([tf.contrib.seq2seq.TrainingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/TrainingHelper))和使用模型进行预测([tf.contrib.seq2seq.GreedyEmbeddingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/GreedyEmbeddingHelper))，常见用法见[TensorFlow参考页面](https://www.tensorflow.org/versions/master/api_guides/python/contrib.seq2seq#Dynamic_Decoding)。
 * [tf.contrib.seq2seq.BeamSearchDecoder](https://www.tensorflow.org/versions/master/api_docs/python/tf/contrib/seq2seq/BasicDecoder) 采用beam search的方式查找结果，用于模型的infer阶段，根据设定的`beam_width`产生对应数量的候选并给出`score`（概率的对数）。
 * [tf.train.AdamOptimizer](https://www.tensorflow.org/versions/master/api_docs/python/tf/train/AdamOptimizer) Adam优化算法，可以采用其他的[算法](https://www.tensorflow.org/versions/master/api_guides/python/train#Optimizers)。
 * [tf.clip_by_value](https://www.tensorflow.org/versions/master/api_docs/python/tf/clip_by_value) 根据给定范围对梯度进行剪裁。
@@ -80,7 +59,7 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 `./tensor_seq`文件夹中为seq2seq模型主体。
 
 **首次运行模型时需要先运行**
-```
+```bash
 cd ./tensor_seq
 python converter.py
 python data.py
@@ -116,27 +95,27 @@ isTrain = 1
 display_step = 50
 ```
 *调整`batch_size`后注意根据情况调整训练数据集和测试数据集大小*
-```
+```python
     train_source = source_int_shuffle[50 * batch_size:]
     train_target = target_int_shuffle[50 * batch_size:]
     valid_source = source_int_shuffle[:50 * batch_size]
     valid_target = target_int_shuffle[:50 * batch_size]
 ```
 设定完成后可以通过运行以下命令对模型进行训练。
-```
+```bash
 python model.py
 ```
 模型训练过程中会在`./tensor_seq/`目录下生成`graph/`与`model/`两个文件夹，其中`model/`中保存了模型训练过程中的各个状态，用于训练完成后读取模型进行发音预测。`graph/`中保存了计算图的相关信息，以及training loss和validation loss，利用tensorboard工具可以对模型以及相关参数进行可视化。
 
 输入以下命令来开启tensorboard
-```
+```bash
 tensorboard --logdir ./graph/
 ```
 开启以后只要在浏览器中输入`http://127.0.0.1:6006`即可访问tensorboard。
 
 模型训练完成后将参数`isTrain`的值设置为0后再次运行`model.py`可以对训练好的模型进行测试。
 使用方法：
-```
+```bash
 python model.py
 ```
 
