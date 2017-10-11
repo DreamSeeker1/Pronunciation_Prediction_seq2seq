@@ -49,6 +49,7 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 ##### Beam Search 算法介绍
 一种广度优先算法，可以产生多个候选序列。
 ![](https://raw.githubusercontent.com/yanwii/seq2seq/master/img/beamsearch.png)
+
 [Wiki 介绍](https://en.wikipedia.org/wiki/Beam_search)
 [知乎 介绍](https://www.zhihu.com/question/54356960)
 
