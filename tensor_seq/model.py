@@ -305,8 +305,8 @@ with tf.Session(graph=train_graph) as sess:
     # run initializer
     sess.run(tf.global_variables_initializer())
 
-    # define saver
-    saver = tf.train.Saver()
+    # define saver, keep most recent 15 models
+    saver = tf.train.Saver(max_to_keep=15)
 
     if isTrain:
         for epoch_i in range(1, epochs + 1):
