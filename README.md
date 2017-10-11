@@ -43,26 +43,26 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 * [tf.nn.dynamic_rnn](https://www.tensorflow.org/api_docs/python/tf/nn/dynamic_rnn) 根据给的RNNCell构建RNN网络，并且根据输入的序列长度动态计算输出，返回值`output`为每个时刻 t 网络的输出，`state`为网络最终的最终状态。
 * [tf.contrib.seq2seq.dynamic_decode](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/dynamic_decode) 根据采用的decoder进行解码。
 * [tf.contrib.seq2seq.BasicDecoder](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/BasicDecoder) 一种用于`tf.contrib.seq2seq.dynamic_decode`解码的decoder类型，根据`helper`的不同可以用来训练模型([tf.contrib.seq2seq.TrainingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/TrainingHelper))和使用模型进行预测([tf.contrib.seq2seq.GreedyEmbeddingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/GreedyEmbeddingHelper))，常见用法如下：
-    ```
-    cell = # instance of RNNCell
-    if mode == "train":
-      helper = tf.contrib.seq2seq.TrainingHelper(
-        input=input_vectors,
-        sequence_length=input_lengths)
-    elif mode == "infer":
-      helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-          embedding=embedding,
-          start_tokens=tf.tile([GO_SYMBOL], [batch_size]),
-          end_token=END_SYMBOL)
-    decoder = tf.contrib.seq2seq.BasicDecoder(
-        cell=cell,
-        helper=helper,
-        initial_state=cell.zero_state(batch_size, tf.float32))
-    outputs, _ = tf.contrib.seq2seq.dynamic_decode(
-       decoder=decoder,
-       output_time_major=False,
-       impute_finished=True,
-       maximum_iterations=20)
+    ```python
+		cell = # instance of RNNCell
+		if mode == "train":
+		  helper = tf.contrib.seq2seq.TrainingHelper(
+			input=input_vectors,
+			sequence_length=input_lengths)
+		elif mode == "infer":
+		  helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+			  embedding=embedding,
+			  start_tokens=tf.tile([GO_SYMBOL], [batch_size]),
+			  end_token=END_SYMBOL)
+		decoder = tf.contrib.seq2seq.BasicDecoder(
+			cell=cell,
+			helper=helper,
+			initial_state=cell.zero_state(batch_size, tf.float32))
+		outputs, _ = tf.contrib.seq2seq.dynamic_decode(
+		   decoder=decoder,
+		   output_time_major=False,
+		   impute_finished=True,
+		   maximum_iterations=20)
     ```
 * [tf.contrib.seq2seq.BeamSearchDecoder](https://www.tensorflow.org/versions/master/api_docs/python/tf/contrib/seq2seq/BasicDecoder) 采用beam search的方式查找结果，用于模型的infer阶段，根据设定的`beam_width`产生对应数量的候选并给出`score`（概率的对数）。
 * [tf.train.AdamOptimizer](https://www.tensorflow.org/versions/master/api_docs/python/tf/train/AdamOptimizer) Adam优化算法，可以采用其他的[算法](https://www.tensorflow.org/versions/master/api_guides/python/train#Optimizers)。
