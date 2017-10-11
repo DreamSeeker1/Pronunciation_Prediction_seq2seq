@@ -7,6 +7,7 @@
 ```
 TensorFlow 1.3
 Python 2.7
+Scrapy 1.4
 ```
 
 ## 发音训练数据集
@@ -120,6 +121,17 @@ tensorboard --logdir ./graph/
 python model.py
 ```
 
+### 2. 爬虫介绍
+位于`./webcrawler`文件夹内，使用[`Scrapy`](https://scrapy.org/)框架。爬虫根据词表爬取其在[iCIBA](http://www.iciba.com/)网站的英式和美式发音并存取，设置了自动切换`user agent`并且限制了爬取速率防止被ban。`result.csv`是根据`cmudict.0.7a`中单词爬取的结果。
+
+#### 使用方法
+*运行爬虫前首先在根目录建立词表，每个单词以回车分隔。命名为`word_list`*
+词表建立完成后进入爬虫目录，并运行爬虫
+```bash
+cd ./webcrawler
+scrapy crawl ciba -o ./crawl_result.csv
+```
+这将在当前目录下生成`crawl_result.csv`文件，其中保存了爬取结果。结果分为三列，分别为单词，美音，英音，值为`NULL`表示没有爬取到相应结果，第一行为表头。
 
 ### TODO
 + [ ] 加入attention机制
