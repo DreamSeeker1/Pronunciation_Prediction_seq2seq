@@ -75,28 +75,30 @@ python data.py
 与模型相关的参数位于`./tensor_seq/model.py`代码前部。
 ```python
 # Number of Epochs
-epochs = 20
+epochs = 60
 # Batch Size
-batch_size = 512
+batch_size = 256
 # RNN Size
 rnn_size = 256
 # Number of Layers
 num_layers = 2
 # Embedding Size
-encoding_embedding_size = 40
+encoding_embedding_size = 256
 decoding_embedding_size = encoding_embedding_size
 # Learning Rate
 learning_rate = 0.001
 # cell type 0 for lstm, 1 for GRU
-Cell_type = 1
+Cell_type = 0
 # decoder type 0 for basic, 1 for beam search
 Decoder_type = 1
 # beam width for beam search decoder
 beam_width = 3
 # 1 for training, 0 for test the already trained model
-isTrain = 1
+isTrain = 0
 # display step for training
 display_step = 50
+# max number of model to keep
+max_model_number = 5
 ```
 *调整`batch_size`后注意根据情况调整训练数据集和测试数据集大小*
 ```python
@@ -149,5 +151,5 @@ python sp.py
 运行完成后将会在`Split_Dataset`中生成`testing`,`validation`,`training`三个文件。
 ### TODO
 ---
-+ [ ] 加入attention机制
-+ [ ] 采用输入逆序进行训练
+- [ ] 加入attention机制
+- [ ] 采用输入逆序进行训练
