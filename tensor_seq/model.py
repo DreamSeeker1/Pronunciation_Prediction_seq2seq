@@ -25,9 +25,11 @@ Decoder_type = 1
 # beam width for beam search decoder
 beam_width = 3
 # 1 for training, 0 for test the already trained model
-isTrain = 1
+isTrain = 0
 # display step for training
 display_step = 50
+# max number of model to keep
+max_model_number = 5
 
 # import the data
 with open('data.pickle', 'r') as f:
@@ -280,9 +282,9 @@ if isTrain:
 
 
 # calculate the error of the prediction
-def cal_error(input_batch, predicition_result):
+def cal_error(input_batch, prediction_result):
     t_error = 0.0
-    for char_ids, pron_ids in zip(input_batch, predicition_result):
+    for char_ids, pron_ids in zip(input_batch, prediction_result):
         t_word = map(lambda x: source_int_to_letter[x], char_ids)
         try:
             word = ''.join(t_word[:t_word.index('<PAD>')])
@@ -306,7 +308,7 @@ with tf.Session(graph=train_graph) as sess:
     sess.run(tf.global_variables_initializer())
 
     # define saver, keep 15 most recent models
-    saver = tf.train.Saver(max_to_keep=15)
+    saver = tf.train.Saver(max_to_keep=max_model_number)
 
     if isTrain:
         for epoch_i in range(1, epochs + 1):
