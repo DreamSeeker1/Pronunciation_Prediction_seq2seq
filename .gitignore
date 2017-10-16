@@ -2,6 +2,7 @@
 .idea
 .ipynb_checkpoints
 data_utils/ipapy/
+data_utils/data/
 tensor_seq/checkpoint/
 tensor_seq/graph/
 tensor_seq/model/

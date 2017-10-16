@@ -12,6 +12,7 @@ from ipapy.arpabetmapper import ARPABETMapper
 
 def i2a(ipastring):
     """Convert an IPA string to an arpabet string.
+
     Args:
         ipastring: A string representing ipa using utf-8 encoding.
     Returns:
@@ -24,7 +25,7 @@ def i2a(ipastring):
 
 
 def test():
-    """test i2a function, print the original IPA to arpabet.
+    """test i2a function, print the original IPA and arpabet.
     """
     a = u"ˈɑkən"
     print IPAString(unicode_string=a)
