@@ -9,14 +9,18 @@ import pickle
 
 # Learning rate
 learning_rate = 0.001
+# Optimizer used by the model, 0 for SGD, 1 for Adam, 2 for RMSProp
+optimizer_type = 1
+# Mini-batch size
+batch_size = 512
+# Cell type, 0 for LSTM, 1 for GRU
+Cell_type = 0
+# Activation function used by RNN cell, 0 for tanh, 1 for relu, 2 for sigmoid
+activation_type = 0
 # Number of cells in each layer
-rnn_size = 128
+rnn_size = 256
 # Number of layers
 num_layers = 2
-# Optimizer used by the model, 0 for SGD, 1 for Adam, 2 for RMSProp
-optimizer_type = 0
-# Cell type, 0 for LSTM, 1 for GRU
-Cell_type = 1
 # Embedding size for encoding part and decoding part
 encoding_embedding_size = 128
 decoding_embedding_size = encoding_embedding_size
@@ -24,8 +28,6 @@ decoding_embedding_size = encoding_embedding_size
 Decoder_type = 1
 # Beam width for beam search decoder
 beam_width = 3
-# Mini-batch size
-batch_size = 256
 # Number of max epochs for training
 epochs = 60
 # 1 for training, 0 for test the already trained model
@@ -42,7 +44,6 @@ with open('data.pickle', 'r') as f:
     word_pron = pickle.load(f)
 
 
-#
 def get_inputs():
     """Generate the tf.placeholder for the model input.
 
@@ -90,13 +91,13 @@ def construct_cell(rnn_size, num_layers):
             A single layer of RNN
         """
 
-        # default activation function is tanh
-        # TODO add choice for activation function
-
+        activation_collection = {0: tf.nn.tanh,
+                                 1: tf.nn.relu,
+                                 2: tf.nn.sigmoid}
         if Cell_type:
-            return tf.contrib.rnn.GRUCell(rnn_size)
+            return tf.contrib.rnn.GRUCell(rnn_size, activation=activation_collection[activation_type])
         else:
-            return tf.contrib.rnn.LSTMCell(rnn_size)
+            return tf.contrib.rnn.LSTMCell(rnn_size, activation=activation_collection[activation_type])
 
     cell = tf.contrib.rnn.MultiRNNCell([get_cell(rnn_size) for _ in range(num_layers)])
     return cell
@@ -204,8 +205,7 @@ def decoding_layer(target_letter_to_int, decoding_embedding_size, num_layers, rn
     return training_decoder_output, predicting_decoder_output, bm_decoder_output
 
 
-# TODO delete the batch_size in parameters
-def process_decoder_input(targets, vocab_to_int, batch_size):
+def process_decoder_input(targets, vocab_to_int):
     """Process the target sequence as input to train the model.
     a. cut the last symbol of the target since it won't be fed to the network (<EOS>, <PAD>).
     b. add <GO> to each sequence.
@@ -255,7 +255,7 @@ def seq2seq_model(input_data, targets, target_sequence_length,
                                          source_vocab_size,
                                          encoder_embedding_size)
 
-    decoder_input = process_decoder_input(targets, target_letter_to_int, batch_size)
+    decoder_input = process_decoder_input(targets, target_letter_to_int)
 
     training_decoder_output, predicting_decoder_output, bm_decoder_output = decoding_layer(target_letter_to_int,
                                                                                            decoding_embedding_size,
