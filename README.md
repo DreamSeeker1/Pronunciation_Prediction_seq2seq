@@ -149,6 +149,32 @@ cd  ./Split_Dataset
 python sp.py
 ```
 运行完成后将会在`Split_Dataset`中生成`testing`,`validation`,`training`三个文件。
+
+
+### 4. 音标转换工具
+---
+代码位于`./data_utils`文件夹内。由于爬虫爬取到的音标为utf-8编码格式的国际音标（[IPA](https://en.wikipedia.org/wiki/International_Phonetic_Alphabet)），而进行发音预测时的输出为[ARPAbet](https://en.wikipedia.org/wiki/ARPABET)音标，因此如果想要使用自己爬取获得的数据进行模型的训练的话需要对数据进行预处理，将所有的IPA音标转化为ARPAbet音标。
+
+主要使用了[`ipapy`](https://github.com/pettarin/ipapy)模块（用于处理IPA国际音标字符串，具体用法参考项目主页，暂不支持重音处理）。
+
+####使用方法
+代码具体实现时对`ipapy`进行了简单的修改，增加了æ的对应音标。
+
+首先下载改版的`ipapy`模块
+```shell
+cd ./data_utils
+git clone https://github.com/yuyue9284/ipapy.git
+```
+然后运行
+```shell
+python ./convert_to _arpabet.py
+```
+这将在`./data_utils`文件夹下生成`data`文件夹，其中`en.csv`，`us.csv`，`final_result`分别为单词与英音IPA音标对照文件，单词与美音IPA音标对照文件，以及最终符合模型输入要求的单词与ARPAbet音标文件。
+
+`final_result`***是将英音美音对照同时输入到了一个文件之中，而在模型训练时应当仅仅使用一个口音，这样才能保证模型的准确性，因此***`final_result`***文件并不能直接当做数据集进行模型的训练，需要进行进一步的分割***。
+
+
+
 ### TODO
 ---
 - [ ] 加入attention机制
