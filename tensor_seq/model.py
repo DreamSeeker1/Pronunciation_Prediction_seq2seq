@@ -10,9 +10,11 @@ import pickle
 # Learning rate
 learning_rate = 0.001
 # Number of cells in each layer
-rnn_size = 64
+rnn_size = 128
 # Number of layers
 num_layers = 2
+# Optimizer used by the model, 0 for SGD, 1 for Adam, 2 for RMSProp
+optimizer_type = 0
 # Cell type, 0 for LSTM, 1 for GRU
 Cell_type = 1
 # Embedding size for encoding part and decoding part
@@ -27,7 +29,7 @@ batch_size = 256
 # Number of max epochs for training
 epochs = 60
 # 1 for training, 0 for test the already trained model
-isTrain = 0
+isTrain = 1
 # Display the result of training for every display_step
 display_step = 50
 # max number of model to keep
@@ -309,9 +311,11 @@ with train_graph.as_default():
             targets,
             masks)
 
-        # TODO add choice for optimizer
-        # Optimizer, using AdamOptimizer
-        optimizer = tf.train.AdamOptimizer(lr)
+        optimizer_collection = {0: tf.train.GradientDescentOptimizer(lr),
+                                1: tf.train.AdamOptimizer(lr),
+                                2: tf.train.RMSPropOptimizer(lr)}
+        # Using the optimizer defined by optimizer_type
+        optimizer = optimizer_collection[optimizer_type]
 
         # compute gradient
         gradients = optimizer.compute_gradients(train_cost)
