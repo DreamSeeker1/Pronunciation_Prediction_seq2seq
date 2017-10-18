@@ -14,12 +14,13 @@ Scrapy 1.4
 采用 CMUdict version 0.7a，位于根目录。
 
 ## 功能介绍
----
 ### 1. seq2seq模型
 ---
 #### 模型简介
-本项目采用了最基本的encoder-decoder模型实现seq2seq功能，支持LSTM/GRU选择，decoder部分使用beam search支持多候选，并且输出各个候选序列概率的对数，没有使用输入逆序以及attention机制。代码主要利用了TensorFlow中[tf.contrib.seq2seq](https://www.tensorflow.org/versions/master/api_docs/python/tf/contrib/seq2seq)模块。
+本项目采用了最基本的encoder-decoder模型实现seq2seq功能，支持LSTM/GRU选择，decoder部分使用beam search支持多候选，并且输出各个候选序列概率的对数，没有使用输入逆序以及attention机制。代码主要利用了TensorFlow中[tf.contrib.seq2seq](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/seq2seq)模块。
+
 LSTM/GRU 作为 RNN cell 可以防止梯度消失。
+
 使用Gradient Clipping 防止梯度爆炸。
 
 原理参考： [从Encoder到Decoder实现Seq2Seq模型](https://zhuanlan.zhihu.com/p/27608348)
@@ -38,22 +39,50 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 8. 重复步骤 4 - 7
 
 #### 涉及到的类和函数
-* [tf.contrib.rnn.GRUCell](https://www.tensorflow.org/api_docs/python/tf/contrib/rnn/GRUCell) RNN 中使用的GRU Cell。
-* [tf.contrib.rnn.LSTMCell](https://www.tensorflow.org/api_docs/python/tf/contrib/rnn/LSTMCell) RNN 中使用的LSTM Cell。
-* [tf.contrib.rnn.MultiRNNCell](https://www.tensorflow.org/api_docs/python/tf/contrib/rnn/MultiRNNCell) 将多个RNN Cell按顺序连接起来，方便构成多层RNN。
-* [tf.contrib.layers.embed_sequence](https://www.tensorflow.org/api_docs/python/tf/contrib/layers/embed_sequence) 输入符号序列，符号数量和embedding的维度，将符号序列映射成为embedding序列。
-* [tf.nn.dynamic_rnn](https://www.tensorflow.org/api_docs/python/tf/nn/dynamic_rnn) 根据给的RNNCell构建RNN网络，并且根据输入的序列长度动态计算输出，返回值`output`为每个时刻 t 网络的输出，`state`为网络最终的最终状态。
-* [tf.contrib.seq2seq.dynamic_decode](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/dynamic_decode) 根据采用的decoder进行解码。
-* [tf.contrib.seq2seq.BasicDecoder](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/BasicDecoder) 一种用于`tf.contrib.seq2seq.dynamic_decode`解码的decoder类型，根据`helper`的不同可以用来训练模型([tf.contrib.seq2seq.TrainingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/TrainingHelper))和使用模型进行预测([tf.contrib.seq2seq.GreedyEmbeddingHelper](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/GreedyEmbeddingHelper))，常见用法见[TensorFlow参考页面](https://www.tensorflow.org/versions/master/api_guides/python/contrib.seq2seq#Dynamic_Decoding)。
-* [tf.contrib.seq2seq.BeamSearchDecoder](https://www.tensorflow.org/versions/master/api_docs/python/tf/contrib/seq2seq/BasicDecoder) 采用beam search的方式查找结果，用于模型的infer阶段，根据设定的`beam_width`产生对应数量的候选并给出`score`（概率的对数）。
-* [tf.train.AdamOptimizer](https://www.tensorflow.org/versions/master/api_docs/python/tf/train/AdamOptimizer) Adam优化算法，可以采用其他的[算法](https://www.tensorflow.org/versions/master/api_guides/python/train#Optimizers)。
-* [tf.clip_by_value](https://www.tensorflow.org/versions/master/api_docs/python/tf/clip_by_value) 根据给定范围对梯度进行剪裁。
+* [tf.contrib.rnn.GRUCell](https://github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/python/ops/rnn_cell_impl.py) RNN 中使用的GRU Cell。
+* [tf.contrib.rnn.LSTMCell](https://github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/python/ops/rnn_cell_impl.py) RNN 中使用的LSTM Cell。
+* [tf.contrib.rnn.MultiRNNCell](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/python/ops/rnn_cell_impl.py) 将多个RNN Cell按顺序连接起来，方便构成多层RNN。
+* [tf.contrib.layers.embed_sequence](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/layers/python/layers/encoders.py) 输入符号序列，符号数量和embedding的维度，将符号序列映射成为embedding序列。
+* [tf.nn.dynamic_rnn](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/python/ops/rnn.py) 根据给的RNNCell构建RNN网络，并且根据输入的序列长度动态计算输出，返回值`output`为每个时刻 t 网络的输出，`state`为网络最终的最终状态。
+* [tf.contrib.seq2seq.dynamic_decode](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/decoder.py) 根据采用的decoder进行解码。
+* [tf.contrib.seq2seq.BasicDecoder](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/basic_decoder.py) 一种用于`tf.contrib.seq2seq.dynamic_decode`解码的decoder类型，根据`helper`的不同可以用来训练模型([tf.contrib.seq2seq.TrainingHelper](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/helper.py))和使用模型进行预测([tf.contrib.seq2seq.GreedyEmbeddingHelper](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/helper.py))，常见用法见如下。
+```python
+cell = # instance of RNNCell
+
+if mode == "train":
+  helper = tf.contrib.seq2seq.TrainingHelper(
+    input=input_vectors,
+    sequence_length=input_lengths)
+elif mode == "infer":
+  helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+      embedding=embedding,
+      start_tokens=tf.tile([GO_SYMBOL], [batch_size]),
+      end_token=END_SYMBOL)
+
+decoder = tf.contrib.seq2seq.BasicDecoder(
+    cell=cell,
+    helper=helper,
+    initial_state=cell.zero_state(batch_size, tf.float32))
+outputs, _ = tf.contrib.seq2seq.dynamic_decode(
+   decoder=decoder,
+   output_time_major=False,
+   impute_finished=True,
+   maximum_iterations=20)
+```
+
+
+* [tf.contrib.seq2seq.BeamSearchDecoder](https://www.github.com/tensorflow/tensorflow/blob/master/tensorflow/contrib/seq2seq/python/ops/beam_search_decoder.py) 采用beam search的方式查找结果，用于模型的infer阶段，根据设定的`beam_width`产生对应数量的候选并给出`score`（概率的对数）。
+* [tf.train.AdamOptimizer](https://www.github.com/tensorflow/tensorflow/blob/master/tensorflow/python/training/adam.py) Adam优化算法。
+* [tf.train.RMSPropOptimizer](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/python/training/rmsprop.py)RMSProp优化算法。
+* [tf.train.GradientDescentOptimizer](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/python/training/gradient_descent.py)梯度下降优化算法。也可以采用TensorFlow中提供的其他[算法](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/python/training)。
+* [tf.clip_by_norm](https://www.github.com/tensorflow/tensorflow/blob/master/tensorflow/python/ops/clip_ops.py) 根据给定范数范围对梯度进行剪裁。
 ##### Beam Search 算法介绍
 一种广度优先算法，可以产生多个候选序列。
 
 ![](https://raw.githubusercontent.com/yanwii/seq2seq/master/img/beamsearch.png)
 
 [Wiki 介绍](https://en.wikipedia.org/wiki/Beam_search)
+
 [知乎 介绍](https://www.zhihu.com/question/54356960)
 
 *TensorFlow 1.3 中使用[tf.contrib.seq2seq.BeamSearchDecoder](https://www.tensorflow.org/api_docs/python/tf/contrib/seq2seq/BeamSearchDecoder)时需要注意[tf.contrib.seq2seq.dynamic_decode](tf.contrib.seq2seq.dynamic_decode)中的`impute_finished`选项必须设置为`FALSE`，否则编译无法通过，参考[issue11598](https://github.com/tensorflow/tensorflow/issues/11598)。*
@@ -72,42 +101,41 @@ python data.py
 `converter.py`将数据集中的非单词内容去除，将单词变为小写以后把单词与对应的读音分别存入`source_list`与`target_list`之中。
 `data.py`对数据进行进一步的预处理，建立发音，字母和特殊字符与整数之间的映射词典，存入`data.pickle`中方便读取。
 
-与模型相关的参数位于`./tensor_seq/model.py`代码前部。
+与模型相关的参数位于`./tensor_seq/model.py`代码前部，具体使用方法见注释。
 ```python
-# Number of Epochs
-epochs = 60
-# Batch Size
-batch_size = 256
-# RNN Size
-rnn_size = 256
-# Number of Layers
-num_layers = 2
-# Embedding Size
-encoding_embedding_size = 256
-decoding_embedding_size = encoding_embedding_size
-# Learning Rate
+# Learning rate
 learning_rate = 0.001
-# cell type 0 for lstm, 1 for GRU
+# Optimizer used by the model, 0 for SGD, 1 for Adam, 2 for RMSProp
+optimizer_type = 1
+# Mini-batch size
+batch_size = 512
+# Cell type, 0 for LSTM, 1 for GRU
 Cell_type = 0
-# decoder type 0 for basic, 1 for beam search
+# Activation function used by RNN cell, 0 for tanh, 1 for relu, 2 for sigmoid
+activation_type = 0
+# Number of cells in each layer
+rnn_size = 256
+# Number of layers
+num_layers = 2
+# Embedding size for encoding part and decoding part
+encoding_embedding_size = 128
+decoding_embedding_size = encoding_embedding_size
+# Decoder type, 0 for basic, 1 for beam search
 Decoder_type = 1
-# beam width for beam search decoder
+# Beam width for beam search decoder
 beam_width = 3
+# Number of max epochs for training
+epochs = 60
 # 1 for training, 0 for test the already trained model
-isTrain = 0
-# display step for training
+isTrain = 1
+# Display the result of training for every display_step
 display_step = 50
 # max number of model to keep
 max_model_number = 5
 ```
-*调整`batch_size`后注意根据情况调整训练数据集和测试数据集大小*
-```python
-    train_source = source_int_shuffle[50 * batch_size:]
-    train_target = target_int_shuffle[50 * batch_size:]
-    valid_source = source_int_shuffle[:50 * batch_size]
-    valid_target = target_int_shuffle[:50 * batch_size]
-```
+
 设定完成后可以通过运行以下命令对模型进行训练。
+
 ```bash
 python model.py
 ```
@@ -150,7 +178,6 @@ python sp.py
 ```
 运行完成后将会在`Split_Dataset`中生成`testing`,`validation`,`training`三个文件。
 
-
 ### 4. 音标转换工具
 ---
 代码位于`./data_utils`文件夹内。由于爬虫爬取到的音标为utf-8编码格式的国际音标（[IPA](https://en.wikipedia.org/wiki/International_Phonetic_Alphabet)），而进行发音预测时的输出为[ARPAbet](https://en.wikipedia.org/wiki/ARPABET)音标，因此如果想要使用自己爬取获得的数据进行模型的训练的话需要对数据进行预处理，将所有的IPA音标转化为ARPAbet音标。
@@ -172,8 +199,6 @@ python ./convert_to _arpabet.py
 这将在`./data_utils`文件夹下生成`data`文件夹，其中`en.csv`，`us.csv`，`final_result`分别为单词与英音IPA音标对照文件，单词与美音IPA音标对照文件，以及最终符合模型输入要求的单词与ARPAbet音标文件。
 
 `final_result`***是将英音美音对照同时输入到了一个文件之中，而在模型训练时应当仅仅使用一个口音，这样才能保证模型的准确性，因此***`final_result`***文件并不能直接当做数据集进行模型的训练，需要进行进一步的分割***。
-
-
 
 ### TODO
 ---
