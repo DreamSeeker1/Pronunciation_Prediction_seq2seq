@@ -8,21 +8,21 @@ import tensorflow as tf
 import pickle
 
 # Learning rate
-learning_rate = 0.001
+learning_rate = 0.01
 # Optimizer used by the model, 0 for SGD, 1 for Adam, 2 for RMSProp
 optimizer_type = 1
 # Mini-batch size
 batch_size = 512
 # Cell type, 0 for LSTM, 1 for GRU
-Cell_type = 0
+Cell_type = 1
 # Activation function used by RNN cell, 0 for tanh, 1 for relu, 2 for sigmoid
 activation_type = 0
 # Number of cells in each layer
-rnn_size = 256
+rnn_size = 64
 # Number of layers
 num_layers = 2
 # Embedding size for encoding part and decoding part
-encoding_embedding_size = 128
+encoding_embedding_size = 64
 decoding_embedding_size = encoding_embedding_size
 # Decoder type, 0 for basic, 1 for beam search
 Decoder_type = 1
@@ -40,7 +40,7 @@ max_model_number = 5
 # import the data from data.pickle
 with open('data.pickle', 'r') as f:
     source_int_to_letter, source_letter_to_int, \
-    target_int_to_letter, target_letter_to_int, source_int, target_int, \
+    target_int_to_letter, target_letter_to_int, data_sets, \
     word_pron = pickle.load(f)
 
 
@@ -386,22 +386,12 @@ def get_batches(targets, sources, source_pad_int, target_pad_int):
 
 
 if isTrain:
-    # shuffle the data set before training
-    permu = np.random.permutation(len(source_int))
-    source_int_shuffle = []
-    target_int_shuffle = []
 
-    for i in permu:
-        source_int_shuffle.append(source_int[i])
-        target_int_shuffle.append(target_int[i])
+    train_source = data_sets['train'][0]
+    train_target = data_sets['train'][1]
 
-    # reserve roughly 10000 data for validation
-    validation_batch_num = 10000 // batch_size
-    train_source = source_int_shuffle[validation_batch_num * batch_size:]
-    train_target = target_int_shuffle[validation_batch_num * batch_size:]
-
-    valid_source = source_int_shuffle[:validation_batch_num * batch_size]
-    valid_target = target_int_shuffle[:validation_batch_num * batch_size]
+    valid_source = data_sets['dev'][0]
+    valid_target = data_sets['dev'][1]
 
 
 # calculate the error of the prediction
@@ -543,3 +533,5 @@ with tf.Session(graph=train_graph) as sess:
                 # print the score of the result
                 print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
                 print ''
+
+    #TODO set isTrain = 2 to use test dataset evaluate the models performance

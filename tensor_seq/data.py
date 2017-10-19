@@ -1,8 +1,10 @@
+"""Map the input and output sequence to int and write to file"""
 import pickle
+
 # open the file contains data
-with open('./source_list') as f:
+with open('./dataset/source_list_whole') as f:
     source_data = f.read().split('\n')
-with open('./target_list') as f:
+with open('./dataset/target_list_whole') as f:
     target_data = f.read().split('\n')
 
 # map the word with the pronunciation
@@ -12,6 +14,7 @@ for word, pron in zip(source_data, target_data):
         word_pron[word].add(pron)
     else:
         word_pron[word] = {pron}
+
 
 # map the character and pronunciation to idx
 def word2index(data):
@@ -50,12 +53,32 @@ def phon2index(data):
 source_int_to_letter, source_letter_to_int = word2index(source_data)
 target_int_to_letter, target_letter_to_int = phon2index(target_data)
 
-source_int = [[source_letter_to_int.get(letter, source_letter_to_int['<UNK>'])
-               for letter in line] for line in source_data]
-target_int = [[target_letter_to_int.get(letter, target_letter_to_int['<UNK>'])
-               for letter in line.split()] + [target_letter_to_int['<EOS>']] for line in target_data]
+
+def map_int(data_set_name):
+    """Map the data set's input and output to integer.
+
+    Args:
+        data_set_name: the name of the data set.
+    Returns:
+        mapping: (input_mapping, output_mapping)
+    """
+    with open('./dataset/source_list_' + data_set_name) as f:
+        source_data = f.read().split('\n')
+    with open('./dataset/target_list_' + data_set_name) as f:
+        target_data = f.read().split('\n')
+    source_int = [[source_letter_to_int.get(letter, source_letter_to_int['<UNK>'])
+                   for letter in line] for line in source_data]
+    target_int = [[target_letter_to_int.get(letter, target_letter_to_int['<UNK>'])
+                   for letter in line.split()] + [target_letter_to_int['<EOS>']] for line in target_data]
+    return source_int, target_int
+
+
+data_sets = {'train': map_int('training'),
+             'test': map_int('testing'),
+             'dev': map_int('validation')}
 
 # save all the objects to a file.
 with open('data.pickle', 'w') as f:
-    pickle.dump([source_int_to_letter, source_letter_to_int, target_int_to_letter, target_letter_to_int, source_int,
-                 target_int, word_pron], f)
+    pickle.dump(
+        [source_int_to_letter, source_letter_to_int, target_int_to_letter, target_letter_to_int, data_sets, word_pron],
+        f)

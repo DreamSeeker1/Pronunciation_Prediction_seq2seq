@@ -20,17 +20,10 @@ seq = np.random.permutation(len(t_source_list))
 
 step = 0
 
-# train_source = open('./train/train_source', 'w')
-# train_target = open('./train/train_target', 'w')
-# test_source = open('./test/test_source', 'w')
-# test_target = open('./test/test_target', 'w')
-# validation_source = open('./validation/validation_source', 'w')
-# validation_target = open('./validation/validation_target', 'w')
-
 training = open('./training', 'w')
 testing = open('./testing', 'w')
 validation = open('./validation', 'w')
-
+whole = open('./whole', 'w')
 data = []
 
 for i in seq:
@@ -59,3 +52,11 @@ to_file(t, testing)
 
 t = data[20000:][:]
 to_file(t, training)
+
+t = data[:]
+to_file(t, whole)
+
+validation.close()
+testing.close()
+training.close()
+whole.close()

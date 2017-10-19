@@ -4,6 +4,7 @@
 data_utils/ipapy/
 data_utils/data/
 tensor_seq/checkpoint/
+tensor_seq/dataset/
 tensor_seq/graph/
 tensor_seq/model/
 tensor_seq/source_list
@@ -13,4 +14,4 @@ Split_Dataset/cmudict.0.7a
 Split_Dataset/training
 Split_Dataset/testing
 Split_Dataset/validation
-
+Split_Dataset/whole
