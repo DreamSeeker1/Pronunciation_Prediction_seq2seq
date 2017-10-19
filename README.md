@@ -194,7 +194,7 @@ git clone https://github.com/yuyue9284/ipapy.git
 ```
 然后运行
 ```shell
-python ./convert_to _arpabet.py
+python ./convert_to_arpabet.py
 ```
 这将在`./data_utils`文件夹下生成`data`文件夹，其中`en.csv`，`us.csv`，`final_result`分别为单词与英音IPA音标对照文件，单词与美音IPA音标对照文件，以及最终符合模型输入要求的单词与ARPAbet音标文件。
 
