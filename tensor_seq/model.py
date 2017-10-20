@@ -386,12 +386,15 @@ def get_batches(targets, sources, source_pad_int, target_pad_int):
 
 
 if isTrain:
+    # training the model, make the input and output's size be multiple of mini batch's size.
+    train_remainder = len(data_sets['train'][0]) % batch_size
+    valid_remainder = len(data_sets['dev'][0]) % batch_size
 
-    train_source = data_sets['train'][0]
-    train_target = data_sets['train'][1]
+    train_source = data_sets['train'][0] + data_sets['train'][0][len(data_sets['train'][0]) - train_remainder - 1:]
+    train_target = data_sets['train'][1] + data_sets['train'][1][len(data_sets['train'][0]) - train_remainder - 1:]
 
-    valid_source = data_sets['dev'][0]
-    valid_target = data_sets['dev'][1]
+    valid_source = data_sets['dev'][0] + data_sets['dev'][0][0:batch_size - valid_remainder]
+    valid_target = data_sets['dev'][1] + data_sets['dev'][1][0:batch_size - valid_remainder]
 
 
 # calculate the error of the prediction
@@ -534,4 +537,4 @@ with tf.Session(graph=train_graph) as sess:
                 print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
                 print ''
 
-    #TODO set isTrain = 2 to use test dataset evaluate the models performance
+                # TODO set isTrain = 2 to use test dataset evaluate the models performance

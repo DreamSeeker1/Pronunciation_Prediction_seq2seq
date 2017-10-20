@@ -1,5 +1,6 @@
 import re
 import numpy as np
+
 f = open('../cmudict.0.7a', 'r')
 
 t_source_list = []
@@ -30,24 +31,23 @@ for i in seq:
     data.append((t_source_list[i], t_target_list[i]))
 
 
-def to_file(data, path_name):
-    data.sort()
-    for it in t:
+def to_file(data_input, path_name):
+    """Write the data to the file
+    Args:
+        data_input: the input data.
+        path_name: the path to save the file.
+    """
+    # data_input.sort()
+    for it in data_input:
         path_name.write(it[0] + ' ' + it[1] + '\n')
-
-# def to_file(data, source_name, target_name):
-#     data.sort()
-#     for it in t:
-#         source_name.write(it[0] + '\n')
-#         target_name.write(it[1] + '\n')
 
 
 t = data[0:10000][:]
-assert(len(t) == 10000)
+assert (len(t) == 10000)
 to_file(t, validation)
 
 t = data[10000:20000][:]
-assert(len(t) == 10000)
+assert (len(t) == 10000)
 to_file(t, testing)
 
 t = data[20000:][:]
