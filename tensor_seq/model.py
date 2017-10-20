@@ -8,21 +8,21 @@ import tensorflow as tf
 import pickle
 
 # Learning rate
-learning_rate = 0.01
+learning_rate = 0.001
 # Optimizer used by the model, 0 for SGD, 1 for Adam, 2 for RMSProp
 optimizer_type = 1
 # Mini-batch size
 batch_size = 512
 # Cell type, 0 for LSTM, 1 for GRU
-Cell_type = 1
+Cell_type = 0
 # Activation function used by RNN cell, 0 for tanh, 1 for relu, 2 for sigmoid
 activation_type = 0
 # Number of cells in each layer
-rnn_size = 64
+rnn_size = 128
 # Number of layers
 num_layers = 2
 # Embedding size for encoding part and decoding part
-encoding_embedding_size = 64
+encoding_embedding_size = 128
 decoding_embedding_size = encoding_embedding_size
 # Decoder type, 0 for basic, 1 for beam search
 Decoder_type = 1
@@ -30,7 +30,7 @@ Decoder_type = 1
 beam_width = 3
 # Number of max epochs for training
 epochs = 60
-# 1 for training, 0 for test the already trained model
+# 1 for training, 0 for test the already trained model, 2 for evaluate performance
 isTrain = 1
 # Display the result of training for every display_step
 display_step = 50
@@ -385,7 +385,14 @@ def get_batches(targets, sources, source_pad_int, target_pad_int):
         yield pad_targets_batch, pad_sources_batch, targets_lengths, source_lengths
 
 
-if isTrain:
+train_source = None
+train_target = None
+valid_source = None
+valid_target = None
+test_source = None
+test_target = None
+
+if isTrain == 1:
     # training the model, make the input and output's size be multiple of mini batch's size.
     train_remainder = len(data_sets['train'][0]) % batch_size
     valid_remainder = len(data_sets['dev'][0]) % batch_size
@@ -395,6 +402,11 @@ if isTrain:
 
     valid_source = data_sets['dev'][0] + data_sets['dev'][0][0:batch_size - valid_remainder]
     valid_target = data_sets['dev'][1] + data_sets['dev'][1][0:batch_size - valid_remainder]
+
+elif isTrain == 2:
+    test_remainder = len(data_sets['test']) % batch_size
+    test_source = data_sets['test'][0] + data_sets['test'][0][len(data_sets['test'][0]) - test_remainder - 1:]
+    test_target = data_sets['test'][1] + data_sets['test'][1][len(data_sets['test'][0]) - test_remainder - 1:]
 
 
 # calculate the error of the prediction
@@ -434,7 +446,7 @@ with tf.Session(graph=train_graph) as sess:
     # define saver, keep max_model_number of most recent models
     saver = tf.train.Saver(max_to_keep=max_model_number)
 
-    if isTrain:
+    if isTrain == 1:
         # train the model
         for epoch_i in range(1, epochs + 1):
             for batch_i, (targets_batch, sources_batch, targets_lengths, sources_lengths) in enumerate(
@@ -501,40 +513,67 @@ with tf.Session(graph=train_graph) as sess:
         saver.save(sess, save_path='./model/model.ckpt', global_step=step)
         print('Model Trained and Saved')
 
-    # use the trained model to perform pronunciation prediction
     else:
         # load model from folder
         checkpoint = tf.train.latest_checkpoint('./model')
         saver.restore(sess, checkpoint)
-        while True:
-            test_input = raw_input(">>")
-            converted_input = [source_letter_to_int[c] for c in test_input] + [
-                source_letter_to_int['<EOS>']]
-            # if the decoder type is 0, use the basic decoder, same as set beam width to 0
-            if Decoder_type == 0:
-                beam_width = 1
-            result = sess.run(
-                [bm_prediction, bm_score, prediction],
-                {input_data: [converted_input] * batch_size,
-                 target_sequence_length: [len(converted_input) * 2] * batch_size,
-                 source_sequence_length: [len(converted_input)] * batch_size
-                 })
-            print "result:"
-            for i in xrange(beam_width):
-                tmp = []
-                flag = 0
-                for id in result[0][0, :, i]:
-                    tmp.append(target_int_to_letter[id])
-                    if id == target_letter_to_int['<EOS>']:
+
+        # use the trained model to perform pronunciation prediction
+        if isTrain == 0:
+            while True:
+                test_input = raw_input(">>")
+                converted_input = [source_letter_to_int[c] for c in test_input] + [
+                    source_letter_to_int['<EOS>']]
+                # if the decoder type is 0, use the basic decoder, same as set beam width to 0
+                if Decoder_type == 0:
+                    beam_width = 1
+                result = sess.run(
+                    [bm_prediction, bm_score, prediction],
+                    {input_data: [converted_input] * batch_size,
+                     target_sequence_length: [len(converted_input) * 2] * batch_size,
+                     source_sequence_length: [len(converted_input)] * batch_size
+                     })
+                print "result:"
+                for i in xrange(beam_width):
+                    tmp = []
+                    flag = 0
+                    for idx in result[0][0, :, i]:
+                        tmp.append(target_int_to_letter[idx])
+                        if idx == target_letter_to_int['<EOS>']:
+                            print ' '.join(tmp)
+                            flag = 1
+                            break
+                    # prediction length exceeds the max length
+                    if not flag:
                         print ' '.join(tmp)
-                        flag = 1
-                        break
-                # prediction length exceeds the max length
-                if not flag:
-                    print ' '.join(tmp)
 
-                # print the score of the result
-                print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
-                print ''
+                    # print the score of the result
+                    print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
+                    print ''
+        # evaluate the model's performance
+        else:
+            error = 0.0
+            test_loss = []
+            for _, (
+                    test_targets_batch, test_sources_batch, test_targets_lengths,
+                    test_source_lengths) in enumerate(
+                get_batches(test_target, test_source,
+                            source_letter_to_int['<PAD>'],
+                            target_letter_to_int['<PAD>'])
+            ):
+                validation_loss, basic_prediction = sess.run(
+                    [validation_cost, prediction],
+                    {input_data: test_sources_batch,
+                     targets: test_targets_batch,
+                     lr: learning_rate,
+                     target_sequence_length: test_targets_lengths,
+                     source_sequence_length: test_source_lengths})
 
-                # TODO set isTrain = 2 to use test dataset evaluate the models performance
+                test_loss.append(validation_loss)
+                error += cal_error(test_sources_batch, basic_prediction)
+
+            # calculate the average validation cost and the WER over the validation data set
+            test_loss = sum(test_loss) / len(test_loss)
+            WER = error / len(test_target)
+            print('Test loss: {:>6.3f}'
+                  ' - WER: {:>6.2%} '.format(test_loss, WER))

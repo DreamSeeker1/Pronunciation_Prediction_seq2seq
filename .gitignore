@@ -3,6 +3,7 @@
 .ipynb_checkpoints
 data_utils/ipapy/
 data_utils/data/
+tensor_seq/test.sh
 tensor_seq/checkpoint/
 tensor_seq/dataset/
 tensor_seq/graph/
