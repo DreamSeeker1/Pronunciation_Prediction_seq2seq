@@ -440,13 +440,14 @@ with tf.Session(graph=train_graph) as sess:
     # define summary file writer
     t_s = tf.summary.FileWriter('./graph/training', sess.graph)
     v_s = tf.summary.FileWriter('./graph/validation', sess.graph)
-    # run initializer
-    sess.run(tf.global_variables_initializer())
 
     # define saver, keep max_model_number of most recent models
     saver = tf.train.Saver(max_to_keep=max_model_number)
 
     if isTrain == 1:
+        # run initializer
+        sess.run(tf.global_variables_initializer())
+
         # train the model
         for epoch_i in range(1, epochs + 1):
             for batch_i, (targets_batch, sources_batch, targets_lengths, sources_lengths) in enumerate(
