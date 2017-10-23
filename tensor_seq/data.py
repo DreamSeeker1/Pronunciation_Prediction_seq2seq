@@ -78,7 +78,7 @@ data_sets = {'train': map_int('training'),
              'dev': map_int('validation')}
 
 # save all the objects to a file.
-with open('data.pickle', 'w') as f:
+with open('./dataset/data.pickle', 'w') as f:
     pickle.dump(
         [source_int_to_letter, source_letter_to_int, target_int_to_letter, target_letter_to_int, data_sets, word_pron],
         f)
