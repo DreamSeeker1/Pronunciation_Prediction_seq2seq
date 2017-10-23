@@ -94,14 +94,17 @@ outputs, _ = tf.contrib.seq2seq.dynamic_decode(
 **首次运行模型时需要先运行**
 ```bash
 cd ./tensor_seq
-python converter.py
-python data.py
+./initialize.sh
 ```
-这将在`./tensor_seq/`目录下生成`source_list`,`target_list`与`data.pickle`三个文件。
-`converter.py`将数据集中的非单词内容去除，将单词变为小写以后把单词与对应的读音分别存入`source_list`与`target_list`之中。
+这将在`./tensor_seq/dataset`目录下生成`source_list_training`,`target_list_training`与`data.pickle`等文件。
+`converter.py`将数据集之中的单词与读音分别存入对应的`source_list`与`target_list`之中。
 `data.py`对数据进行进一步的预处理，建立发音，字母和特殊字符与整数之间的映射词典，存入`data.pickle`中方便读取。
 
-与模型相关的参数位于`./tensor_seq/model.py`代码前部，具体使用方法见注释。
+与模型相关的参数位于`./tensor_seq/model.py`代码前部。
+
+*`isTrain`的值为`1`时，对模型进行训练；值为`0`时，对训练好的模型进行测试，在命令行输入单词，模型会给出预测的读音；值为`2`时，会用测试数据集对训练好的模型的准确率进行测试。*
+
+其他使用方法见注释：
 ```python
 # Learning rate
 learning_rate = 0.001
@@ -114,7 +117,7 @@ Cell_type = 0
 # Activation function used by RNN cell, 0 for tanh, 1 for relu, 2 for sigmoid
 activation_type = 0
 # Number of cells in each layer
-rnn_size = 256
+rnn_size = 128
 # Number of layers
 num_layers = 2
 # Embedding size for encoding part and decoding part
@@ -126,7 +129,7 @@ Decoder_type = 1
 beam_width = 3
 # Number of max epochs for training
 epochs = 60
-# 1 for training, 0 for test the already trained model
+# 1 for training, 0 for test the already trained model, 2 for evaluate performance
 isTrain = 1
 # Display the result of training for every display_step
 display_step = 50
@@ -139,7 +142,7 @@ max_model_number = 5
 ```bash
 python model.py
 ```
-模型训练过程中会在`./tensor_seq/`目录下生成`graph/`与`model/`两个文件夹，其中`model/`中保存了模型训练过程中的各个状态，用于训练完成后读取模型进行发音预测。`graph/`中保存了计算图的相关信息，以及training loss和validation loss，利用tensorboard工具可以对模型以及相关参数进行可视化。
+模型训练过程中会在`./tensor_seq`目录下生成`graph`与`model`两个文件夹，其中`model`中保存了模型训练过程中的各个状态，用于训练完成后读取模型进行发音预测。`graph`中保存了计算图的相关信息，以及training loss和validation loss，利用tensorboard工具可以对模型以及相关参数进行可视化。
 
 输入以下命令来开启tensorboard
 ```bash
@@ -169,14 +172,14 @@ scrapy crawl ciba -o ./crawl_result.csv
 
 ### 3. 数据集分割工具
 ---
-位于`./Split_Dataset`文件夹内的`sp.py`将`cmudict.0.7a`中的单词及读音提取出来，去除标点符号的读法，并且随机抽取10000条数据作为测试数据(`testing`)，10000条作为验证数据(`validation`)，剩下的作为训练数据(`training`)。
+位于`./Split_Dataset`文件夹内的`sp.py`将`cmudict.0.7a`中的单词及读音提取出来，去除标点符号的读法，存至文件`whole`，并且随机抽取10000条数据作为测试数据(`testing`)，10000条作为验证数据(`validation`)，剩下的作为训练数据(`training`)。
 
 #### 使用方法
 ```bash
 cd  ./Split_Dataset
 python sp.py
 ```
-运行完成后将会在`Split_Dataset`中生成`testing`,`validation`,`training`三个文件。
+运行完成后将会在`Split_Dataset`中生成`whole`,`testing`,`validation`,`training`四个文件。
 
 ### 4. 音标转换工具
 ---
