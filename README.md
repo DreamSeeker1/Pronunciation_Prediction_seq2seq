@@ -100,7 +100,7 @@ cd ./tensor_seq
 `converter.py`将数据集之中的单词与读音分别存入对应的`source_list`与`target_list`之中。
 `data.py`对数据进行进一步的预处理，建立发音，字母和特殊字符与整数之间的映射词典，存入`data.pickle`中方便读取。
 
-与模型相关的参数位于`./tensor_seq/model.py`代码前部。
+与模型相关的参数位于`./tensor_seq/params.py`中。
 
 *`isTrain`的值为`1`时，对模型进行训练；值为`0`时，对训练好的模型进行测试，在命令行输入单词，模型会给出预测的读音；值为`2`时，会用测试数据集对训练好的模型的准确率进行测试。*
 
@@ -140,7 +140,7 @@ max_model_number = 5
 设定完成后可以通过运行以下命令对模型进行训练。
 
 ```bash
-python model.py
+python run.py
 ```
 模型训练过程中会在`./tensor_seq`目录下生成`graph`与`model`两个文件夹，其中`model`中保存了模型训练过程中的各个状态，用于训练完成后读取模型进行发音预测。`graph`中保存了计算图的相关信息，以及training loss和validation loss，利用tensorboard工具可以对模型以及相关参数进行可视化。
 
@@ -153,7 +153,7 @@ tensorboard --logdir ./graph/
 模型训练完成后将参数`isTrain`的值设置为0后再次运行`model.py`可以对训练好的模型进行测试。
 使用方法：
 ```bash
-python model.py
+python run.py
 ```
 
 ### 2. 爬虫介绍
