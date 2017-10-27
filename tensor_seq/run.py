@@ -1,6 +1,9 @@
 """Train or test the model"""
 
 from model import *
+import six
+
+input = six.moves.input
 
 train_source = None
 train_target = None
@@ -153,12 +156,12 @@ def cal_error(input_batch, prediction_result):
     """
     t_error = 0.0
     for char_ids, pron_ids in zip(input_batch, prediction_result):
-        t_word = map(lambda x: source_int_to_letter[x], char_ids)
+        t_word = list(map(lambda x: source_int_to_letter[x], char_ids))
         try:
             word = ''.join(t_word[:t_word.index('<PAD>')])
         except ValueError:
             word = ''.join(t_word)
-        t_pron = map(lambda x: target_int_to_letter[x], pron_ids)
+        t_pron = list(map(lambda x: target_int_to_letter[x], pron_ids))
         try:
             pron = ' '.join(t_pron[:t_pron.index('<EOS>')])
         except ValueError:
@@ -255,9 +258,8 @@ with tf.Session(graph=train_graph) as sess:
         # use the trained model to perform pronunciation prediction
         if isTrain == 0:
             while True:
-                test_input = raw_input(">>")
-                converted_input = [source_letter_to_int[c] for c in test_input] + [
-                    source_letter_to_int['<EOS>']]
+                test_input = input(">>")
+                converted_input = [source_letter_to_int[c] for c in test_input]
                 # if the decoder type is 0, use the basic decoder, same as set beam width to 0
                 if Decoder_type == 0:
                     beam_width = 1
@@ -267,23 +269,23 @@ with tf.Session(graph=train_graph) as sess:
                      target_sequence_length: [len(converted_input) * 2] * batch_size,
                      source_sequence_length: [len(converted_input)] * batch_size
                      })
-                print "result:"
-                for i in xrange(beam_width):
+                print ("result:")
+                for i in range(beam_width):
                     tmp = []
                     flag = 0
                     for idx in result[0][0, :, i]:
                         tmp.append(target_int_to_letter[idx])
                         if idx == target_letter_to_int['<EOS>']:
-                            print ' '.join(tmp)
+                            print (' '.join(tmp))
                             flag = 1
                             break
                     # prediction length exceeds the max length
                     if not flag:
-                        print ' '.join(tmp)
+                        print (' '.join(tmp))
 
                     # print the score of the result
-                    print 'score: {0:.4f}'.format(result[1][0, :, i][-1])
-                    print ''
+                    print ('score: {0:.4f}'.format(result[1][0, :, i][-1]))
+                    print ('')
         # evaluate the model's performance
         else:
             error = 0.0

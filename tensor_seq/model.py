@@ -9,7 +9,7 @@ import pickle
 from params import *
 
 # import the data from data.pickle
-with open('./dataset/data.pickle', 'r') as f:
+with open('./dataset/data.pickle', 'rb') as f:
     source_int_to_letter, source_letter_to_int, \
     target_int_to_letter, target_letter_to_int, data_sets, \
     word_pron = pickle.load(f)

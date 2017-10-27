@@ -23,7 +23,7 @@ beam_width = 3
 # Number of max epochs for training
 epochs = 60
 # 1 for training, 0 for test the already trained model, 2 for evaluate performance
-isTrain = 1
+isTrain = 0
 # Display the result of training for every display_step
 display_step = 50
 # max number of model to keep
