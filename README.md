@@ -46,7 +46,10 @@ LSTM/GRU 作为 RNN cell 可以防止梯度消失。
 * [tf.nn.dynamic_rnn](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/python/ops/rnn.py) 根据给的RNNCell构建RNN网络，并且根据输入的序列长度动态计算输出，返回值`output`为每个时刻 t 网络的输出，`state`为网络最终的最终状态。
 * [tf.contrib.seq2seq.dynamic_decode](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/decoder.py) 根据采用的decoder进行解码。
 * [tf.contrib.seq2seq.BasicDecoder](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/basic_decoder.py) 一种用于`tf.contrib.seq2seq.dynamic_decode`解码的decoder类型，根据`helper`的不同可以用来训练模型([tf.contrib.seq2seq.TrainingHelper](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/helper.py))和使用模型进行预测([tf.contrib.seq2seq.GreedyEmbeddingHelper](https://www.github.com/tensorflow/tensorflow/blob/r1.3/tensorflow/contrib/seq2seq/python/ops/helper.py))，常见用法见如下。
+
+
 ```python
+
 cell = # instance of RNNCell
 
 if mode == "train":
@@ -68,6 +71,7 @@ outputs, _ = tf.contrib.seq2seq.dynamic_decode(
    output_time_major=False,
    impute_finished=True,
    maximum_iterations=20)
+   
 ```
 
 
